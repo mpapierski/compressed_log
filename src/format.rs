@@ -11,11 +11,9 @@ use std::io;
 /// A LogFormat instance can be created with a borrowed
 /// Record, and can be serialized to any object that implements
 /// io::Write.
-pub trait LogFormat<'a, 'r: 'a> {
-    /// Create an instance of the record
-    fn from_record(record: &'a Record<'r>) -> Self;
+pub trait LogFormat {
     /// Serialize a LogFormat into bytes
-    fn serialize<T: io::Write>(&self, output: &mut T) -> io::Result<usize>;
+    fn serialize(&self, output: &mut io::Write) -> io::Result<usize>;
 }
 
 /// BinaryLogFormat serializes the data as a binary string.
@@ -25,8 +23,9 @@ pub struct BinaryLogFormat<'a, 'r: 'a> {
     timestamp: DateTime<Local>,
 }
 
-impl<'a, 'r: 'a> LogFormat<'a, 'r> for BinaryLogFormat<'a, 'r> {
-    fn from_record(record: &'a Record<'r>) -> Self {
+impl<'a, 'r: 'a> BinaryLogFormat<'a, 'r> {
+    /// Create an instance of the record
+    pub fn from_record(record: &'a Record<'r>) -> Self {
         Self {
             record,
             // Timestamp is acquired at the time of LogFormat creation,
@@ -34,7 +33,10 @@ impl<'a, 'r: 'a> LogFormat<'a, 'r> for BinaryLogFormat<'a, 'r> {
             timestamp: Local::now(),
         }
     }
-    fn serialize<T: io::Write>(&self, output: &mut T) -> io::Result<usize> {
+}
+
+impl<'a, 'r: 'a> LogFormat for BinaryLogFormat<'a, 'r> {
+    fn serialize(&self, output: &mut io::Write) -> io::Result<usize> {
         // TODO: We may want to do something more sophisticated like serializing
         // log Record into a structured binary format (i.e. protobuf), but for
         // a starter lets just dump it as a string and the delimiter would be

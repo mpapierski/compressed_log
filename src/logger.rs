@@ -4,7 +4,7 @@
 
 use crate::format::{BinaryLogFormat, LogFormat};
 use failure::Error;
-use log::{Level, Log, Metadata, Record, SetLoggerError};
+use log::{Level, Log, Metadata, Record};
 use lz4::{Encoder, EncoderBuilder};
 use std::cell::RefCell;
 use std::sync::Mutex;
@@ -13,6 +13,7 @@ struct Logger {
     level: Level,
     encoder: Mutex<RefCell<Encoder<Vec<u8>>>>,
 }
+
 impl Logger {
     pub fn with_level(level: Level) -> Result<Self, Error> {
         let buffer = Vec::<u8>::new();
@@ -43,6 +44,7 @@ impl Log for Logger {
             let encoder = self.encoder.lock().expect("Unable to acquire buffer lock");
             // let mut encoder = *encoder.borrow_mut();
             // Serialize binary log record into the output buffer
+
             log_format
                 .serialize(&mut *encoder.borrow_mut())
                 .expect("Unable to serialize a log record into the compressed stream");
