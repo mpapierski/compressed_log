@@ -16,7 +16,9 @@ struct Logger {
 
 impl Logger {
     pub fn with_level(level: Level) -> Result<Self, Error> {
+        // This is the empty buffer that needs to be passed as output of LZ4
         let buffer = Vec::<u8>::new();
+        // TODO: Make this configurable
         let encoder = EncoderBuilder::new().level(4).build(buffer)?;
         Ok(Self {
             level,
