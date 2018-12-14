@@ -9,27 +9,55 @@ use lz4::{Encoder, EncoderBuilder};
 use std::cell::RefCell;
 use std::sync::Mutex;
 
+/// A compressed logger structure.
 struct Logger {
     level: Level,
     encoder: Mutex<RefCell<Encoder<Vec<u8>>>>,
 }
 
 impl Logger {
-    pub fn with_level(level: Level) -> Result<Self, Error> {
+    pub fn new_encoder() -> Result<Encoder<Vec<u8>>, Error> {
         // This is the empty buffer that needs to be passed as output of LZ4
         let buffer = Vec::<u8>::new();
-        // TODO: Make this configurable
-        let encoder = EncoderBuilder::new().level(4).build(buffer)?;
+        // TODO: This should be more configurable
+        Ok(EncoderBuilder::new().level(4).build(buffer)?)
+    }
+
+    // Create new Logger with given logging level
+    pub fn with_level(level: Level) -> Result<Self, Error> {
+        // Create new LZ4 encoder which may potentially fail.
+        let encoder = Logger::new_encoder()?;
+        // Return the logger instance
         Ok(Self {
             level,
             encoder: Mutex::new(RefCell::new(encoder)),
         })
     }
 
-    fn size(&self) -> Result<usize, Error> {
+    /// Gets the length of compressed buffer.
+    ///
+    /// TODO: This function is probably unnecessary in production.
+    fn len(&self) -> Result<usize, Error> {
         let encoder = self.encoder.lock().unwrap();
         let encoder = encoder.borrow();
         Ok(encoder.writer().len())
+    }
+
+    /// Rotates the internal LZ4 buffer and returns the compressed data
+    /// buffer.
+    fn rotate(&self) -> Result<Vec<u8>, Error> {
+        // Acquire encoder lock
+        let encoder = self.encoder.lock().unwrap();
+        // Prepare new LZ4 encoder
+        let new_encoder = Logger::new_encoder()?;
+        // Retrieve the old encoder by swapping it with the new one
+        let old_encoder = encoder.replace(new_encoder);
+        // Finish up the last bits of LZ4 stream and get the writer
+        let (writer, result) = old_encoder.finish();
+        // Check for any compression errors at the last step
+        let _ = result?;
+        // Return the data buffer
+        Ok(writer)
     }
 }
 
@@ -87,5 +115,8 @@ fn logger() {
 
     let logger = Logger::with_level(Level::Trace).unwrap();
     logger.log(&record);
-    assert!(logger.size().unwrap() > 0usize);
+    assert!(logger.len().unwrap() > 0usize);
+
+    let data = logger.rotate().unwrap();
+    assert!(logger.len().unwrap() != data.len());
 }
