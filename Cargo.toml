@@ -1,5 +1,5 @@
 [package]
-name = "log_compress"
+name = "compressed_log"
 version = "0.1.0"
 authors = ["Michał Papierski <michal@papierski.net>"]
 edition = "2018"
