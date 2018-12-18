@@ -8,6 +8,7 @@ pub struct LoggerBuilder {
     level: Level,
     compression: Compression,
     sink_url: Option<String>,
+    threshold: usize,
 }
 
 impl LoggerBuilder {
@@ -18,6 +19,8 @@ impl LoggerBuilder {
             /// Default is supposed to be low to provide fast on the fly compression
             compression: Compression::Fast,
             sink_url: None,
+            /// Default threshold is about ~32KB of compressed data
+            threshold: 32000usize,
         }
     }
     pub fn set_level(&mut self, level: Level) -> &mut Self {
@@ -36,6 +39,11 @@ impl LoggerBuilder {
         self.sink_url = Some(url.to_string());
         self
     }
+    /// Sets the threshold in bytes
+    pub fn set_threshold(&mut self, threshold: usize) -> &mut Self {
+        self.threshold = threshold;
+        self
+    }
     pub fn build(&self) -> Result<Logger, Error> {
         ensure!(
             self.sink_url.is_some(),
@@ -44,6 +52,7 @@ impl LoggerBuilder {
         Logger::new(
             self.level,
             self.compression,
+            self.threshold,
             LogClient::connect(&self.sink_url.as_ref().unwrap()),
         )
     }

@@ -18,6 +18,7 @@ use std::sync::Mutex;
 pub struct Logger {
     level: Level,
     compression: Compression,
+    threshold: usize,
     encoder: Mutex<RefCell<InMemoryEncoder>>,
     sender: Mutex<RefCell<mpsc::Sender<Packet>>>,
 }
@@ -36,6 +37,7 @@ impl Logger {
     pub fn new(
         level: Level,
         compression: Compression,
+        threshold: usize,
         sender: mpsc::Sender<Packet>,
     ) -> Result<Self, Error> {
         // Create new LZ4 encoder which may potentially fail.
@@ -44,6 +46,7 @@ impl Logger {
         Ok(Self {
             level,
             compression,
+            threshold,
             encoder: Mutex::new(RefCell::new(encoder)),
             sender: Mutex::new(RefCell::new(sender)),
         })
@@ -109,7 +112,7 @@ impl Log for Logger {
                 writer.len()
             };
             eprintln!("Current size: {}", current_size);
-            if current_size >= 128 {
+            if current_size >= self.threshold {
                 eprintln!("Trying to rotate...");
                 // Save the memory buffer using already acquired encoder instance.
                 // With this approach it wouldn't require us to manually drop a lock on encodr,
