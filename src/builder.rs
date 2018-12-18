@@ -1,3 +1,4 @@
+use crate::client::LogClient;
 use crate::logger::Logger;
 use crate::lz4::Compression;
 use failure::Error;
@@ -40,6 +41,10 @@ impl LoggerBuilder {
             self.sink_url.is_some(),
             "Unable to create Logger instance without sink url"
         );
-        Logger::new(self.level, self.compression)
+        Logger::new(
+            self.level,
+            self.compression,
+            LogClient::connect(&self.sink_url.as_ref().unwrap()),
+        )
     }
 }

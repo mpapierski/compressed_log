@@ -48,6 +48,7 @@ impl<'a, 'r: 'a> LogFormat for BinaryLogFormat<'a, 'r> {
             self.record.module_path().unwrap_or_default(),
             self.record.args()
         );
+        eprintln!("Data: {:?}", data);
         output.write(data.as_bytes())
     }
 }

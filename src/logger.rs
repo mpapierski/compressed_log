@@ -2,9 +2,13 @@
 //! buffer, and once the buffer is full it executes a rotation
 //! strategy.
 
+use crate::client::Packet;
 use crate::format::{BinaryLogFormat, LogFormat};
 use crate::lz4::{Compression, Encoder, EncoderBuilder, InMemoryEncoder};
 use failure::Error;
+use futures::future::Future;
+use futures::sink::Sink;
+use futures::sync::mpsc;
 use log::{Level, Log, Metadata, Record};
 use std::cell::RefCell;
 use std::io::Write;
@@ -15,6 +19,7 @@ pub struct Logger {
     level: Level,
     compression: Compression,
     encoder: Mutex<RefCell<InMemoryEncoder>>,
+    sender: Mutex<RefCell<mpsc::Sender<Packet>>>,
 }
 
 impl Logger {
@@ -28,7 +33,11 @@ impl Logger {
     }
 
     // Create new Logger with given logging level
-    pub fn new(level: Level, compression: Compression) -> Result<Self, Error> {
+    pub fn new(
+        level: Level,
+        compression: Compression,
+        sender: mpsc::Sender<Packet>,
+    ) -> Result<Self, Error> {
         // Create new LZ4 encoder which may potentially fail.
         let encoder = Logger::new_encoder(&compression)?;
         // Return the logger instance
@@ -36,6 +45,7 @@ impl Logger {
             level,
             compression,
             encoder: Mutex::new(RefCell::new(encoder)),
+            sender: Mutex::new(RefCell::new(sender)),
         })
     }
 
@@ -98,35 +108,30 @@ impl Log for Logger {
                 let writer = encoder.writer();
                 writer.len()
             };
-            if current_size >= 60_000 {
+            eprintln!("Current size: {}", current_size);
+            if current_size >= 128 {
                 eprintln!("Trying to rotate...");
                 // Save the memory buffer using already acquired encoder instance.
                 // With this approach it wouldn't require us to manually drop a lock on encodr,
                 // just to acquire it again inside rotate() function.
                 let data = self.rotate(&encoder).expect("Unable to rotate the buffer");
                 eprintln!("Compressed log chunk size: {}", data.len());
+
+                // Acquire sender instance
+                let sender = self.sender.lock().expect("Unable to acquire sender lock");
+                // Send a chunk of data using the connection
+                sender
+                    .borrow_mut()
+                    .clone()
+                    .send(Packet::Chunk(data))
+                    .wait()
+                    .expect("Unable to send a logs");
+                eprintln!("Sent!");
             }
         }
     }
 
     fn flush(&self) {}
-}
-
-/// Initializes the global logger with a Logger instance with
-/// `max_log_level` set to a specific log level.
-///
-pub fn init_with_level(level: Level) -> Result<(), Error> {
-    let logger = Logger::new(level, Compression::Fast)?;
-    log::set_boxed_logger(Box::new(logger))?;
-    log::set_max_level(level.to_level_filter());
-    Ok(())
-}
-
-/// Initializes the global logger with a Logger instance with
-/// `max_log_level` set to `LogLevel::Trace`.
-///
-pub fn init() -> Result<(), Error> {
-    init_with_level(Level::Trace)
 }
 
 #[test]
@@ -141,7 +146,8 @@ fn logger() {
         .module_path(Some("server"))
         .build();
 
-    let logger = Logger::new(Level::Trace, Compression::Fast).unwrap();
-    logger.log(&record);
-    assert!(logger.len().unwrap() > 0usize);
+    // TODO: Uncomment this
+    // let logger = Logger::new(Level::Trace, Compression::Fast).unwrap();
+    // logger.log(&record);
+    // assert!(logger.len().unwrap() > 0usize);
 }

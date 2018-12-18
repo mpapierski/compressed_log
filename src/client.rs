@@ -21,15 +21,15 @@ impl LogClient {
     ///
     /// TODO: This wraps whole actix actor thing, and probably
     /// just exposing LogClient as an actor could be easier to use.
-    fn connect(url: &str) -> mpsc::Sender<Packet> {
+    pub fn connect(url: &str) -> mpsc::Sender<Packet> {
         // Bound of 1 to limit the rate of messages
         let (sender, receiver) = mpsc::channel(1);
-
+        println!("URL: {}", url);
         Arbiter::spawn(
             Client::new(url)
                 .connect()
                 .map_err(|e| {
-                    eprintln!("Error: {}", e);
+                    eprintln!("Connect error: {}", e);
                     ()
                 })
                 .and_then(|(reader, writer)| {
@@ -37,9 +37,11 @@ impl LogClient {
                         LogClient::add_stream(reader, ctx);
                         LogClient(writer)
                     });
+                    println!("Got reader and writer");
 
                     receiver
                         .for_each(move |message| {
+                            println!("Got something from receiver");
                             // Here the packet is popped already
                             match message {
                                 Packet::Chunk(data) => {
@@ -103,6 +105,7 @@ impl Handler<LogChunk> for LogClient {
 
     fn handle(&mut self, msg: LogChunk, _ctx: &mut Context<Self>) {
         // Send a chunk using binary frame
+        eprintln!("Send binary {:?}", msg.0);
         self.0.binary(msg.0)
     }
 }
@@ -113,6 +116,7 @@ impl StreamHandler<Message, ProtocolError> for LogClient {
         // This is mostly boilerplate. We don't expect any message back.
         match msg {
             Message::Text(txt) => println!("Server: {:?}", txt),
+            Message::Binary(bin) => println!("Binary: {:?}", bin),
             _ => (),
         }
     }
