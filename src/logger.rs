@@ -20,7 +20,7 @@ pub struct Logger {
     compression: Compression,
     threshold: usize,
     encoder: Mutex<RefCell<InMemoryEncoder>>,
-    sender: Mutex<RefCell<mpsc::Sender<Packet>>>,
+    sender: mpsc::Sender<Packet>,
 }
 
 impl Logger {
@@ -48,7 +48,7 @@ impl Logger {
             compression,
             threshold,
             encoder: Mutex::new(RefCell::new(encoder)),
-            sender: Mutex::new(RefCell::new(sender)),
+            sender,
         })
     }
 
@@ -81,7 +81,15 @@ impl Drop for Logger {
         // Unconditional rotation of log
         let encoder = self.encoder.lock().expect("Unable to acquire buffer lock");
         let data = self.rotate(&encoder).expect("Unable to rotate the buffer");
-        eprintln!("Data at the end {:?}", data);
+        if data.is_empty() {
+            return;
+        }
+        // Send a chunk of data using the connection
+        self.sender
+            .clone()
+            .send(Packet::Chunk(data))
+            .wait()
+            .expect("Unable to send a logs");
     }
 }
 
@@ -120,10 +128,8 @@ impl Log for Logger {
             // just to acquire it again inside rotate() function.
             let data = self.rotate(&encoder).expect("Unable to rotate the buffer");
             // Acquire sender instance
-            let sender = self.sender.lock().expect("Unable to acquire sender lock");
             // Send a chunk of data using the connection
-            sender
-                .borrow_mut()
+            self.sender
                 .clone()
                 .send(Packet::Chunk(data))
                 .wait()
