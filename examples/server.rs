@@ -1,8 +1,16 @@
 use ::actix::*;
 use actix_web::{server, ws, App};
+use lz4::Decoder;
+use std::io;
 
 /// Define http actor
 struct Ws;
+
+impl Default for Ws {
+    fn default() -> Self {
+        Self {}
+    }
+}
 
 impl Actor for Ws {
     type Context = ws::WebsocketContext<Self>;
@@ -20,11 +28,14 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for Ws {
                 println!("Text: {} bytes", text.len());
                 ()
             }
-            //ctx.text(text),
-            ws::Message::Binary(bin) => {
+            ws::Message::Binary(mut bin) => {
                 println!("Binary: {} bytes", bin.len());
-                // ctx.binary(bin),
-                ()
+                let bytes = bin.take().to_vec();
+                let mut decoder = Decoder::new(&bytes[..]).expect("Unable to create decoder");
+                let mut output: Vec<u8> = Vec::new();
+                io::copy(&mut decoder, &mut output)
+                    .expect("Unable to copy data from decoder to output buffer");
+                println!("{}", String::from_utf8(output).unwrap());
             }
             _ => {
                 println!("Unknown message");
@@ -41,7 +52,7 @@ fn main() {
             .resource("/sink/", |r| {
                 r.f(|req| {
                     println!("Something happened!");
-                    ws::start(req, Ws)
+                    ws::start(req, Ws::default())
                 })
             })
             .finish()
