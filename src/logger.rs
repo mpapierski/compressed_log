@@ -111,26 +111,23 @@ impl Log for Logger {
                 let writer = encoder.writer();
                 writer.len()
             };
-            eprintln!("Current size: {}", current_size);
-            if current_size >= self.threshold {
-                eprintln!("Trying to rotate...");
-                // Save the memory buffer using already acquired encoder instance.
-                // With this approach it wouldn't require us to manually drop a lock on encodr,
-                // just to acquire it again inside rotate() function.
-                let data = self.rotate(&encoder).expect("Unable to rotate the buffer");
-                eprintln!("Compressed log chunk size: {}", data.len());
-
-                // Acquire sender instance
-                let sender = self.sender.lock().expect("Unable to acquire sender lock");
-                // Send a chunk of data using the connection
-                sender
-                    .borrow_mut()
-                    .clone()
-                    .send(Packet::Chunk(data))
-                    .wait()
-                    .expect("Unable to send a logs");
-                eprintln!("Sent!");
+            if current_size < self.threshold {
+                // Compressed log didn't hit the size threshold
+                return;
             }
+            // Save the memory buffer using already acquired encoder instance.
+            // With this approach it wouldn't require us to manually drop a lock on encodr,
+            // just to acquire it again inside rotate() function.
+            let data = self.rotate(&encoder).expect("Unable to rotate the buffer");
+            // Acquire sender instance
+            let sender = self.sender.lock().expect("Unable to acquire sender lock");
+            // Send a chunk of data using the connection
+            sender
+                .borrow_mut()
+                .clone()
+                .send(Packet::Chunk(data))
+                .wait()
+                .expect("Unable to send a logs");
         }
     }
 
