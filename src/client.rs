@@ -10,13 +10,15 @@ use futures::prelude::*;
 use futures::sync::mpsc;
 use std::cell::RefCell;
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 // This is the websocket client
 pub struct LogClient {
     url: String,
     backoff: ExponentialBackoff,
     writer: Option<ClientWriter>,
+    // Time when a ping was sent
+    heartbeat: SystemTime,
 }
 
 impl LogClient {
@@ -25,6 +27,7 @@ impl LogClient {
             url: url.to_string(),
             backoff: ExponentialBackoff::default(),
             writer: None,
+            heartbeat: SystemTime::now(),
         }
     }
 }
@@ -63,6 +66,7 @@ impl Actor for LogClient {
                 // Keep the writer for later
                 act.writer = Some(writer);
                 // Start pinging
+                act.heartbeat = SystemTime::now();
                 act.hb(&mut ctx);
             })
             .map_err(|err, act, ctx| {
@@ -80,6 +84,12 @@ impl Actor for LogClient {
 impl LogClient {
     fn hb(&self, ctx: &mut Context<Self>) {
         ctx.run_later(Duration::new(1, 0), |mut act, ctx| {
+            eprintln!("Heartbeat elapsed: {:?}", act.heartbeat.elapsed().unwrap());
+            if act.heartbeat.elapsed().unwrap() >= Duration::from_secs(5) {
+                eprintln!("Server timed out!");
+                ctx.stop();
+                return;
+            }
             act.writer.as_mut().unwrap().ping("");
             act.hb(ctx);
         });
@@ -105,6 +115,7 @@ impl StreamHandler<Message, ProtocolError> for LogClient {
     fn handle(&mut self, msg: Message, _ctx: &mut Context<Self>) {
         // This is mostly boilerplate. We don't expect any message back.
         match msg {
+            Message::Pong(what) => self.heartbeat = SystemTime::now(),
             Message::Text(txt) => println!("Server: {:?}", txt),
             Message::Binary(bin) => println!("Binary: {:?}", bin),
             _ => (),
