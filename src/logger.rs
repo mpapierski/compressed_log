@@ -2,9 +2,10 @@
 //! buffer, and once the buffer is full it executes a rotation
 //! strategy.
 
-use crate::client::Packet;
+use crate::client::{LogChunk, LogClient};
 use crate::format::{BinaryLogFormat, LogFormat};
 use crate::lz4::{Compression, Encoder, EncoderBuilder, InMemoryEncoder};
+use actix::{Addr, Arbiter, AsyncContext};
 use failure::Error;
 use futures::future::Future;
 use futures::sink::Sink;
@@ -20,7 +21,7 @@ pub struct Logger {
     compression: Compression,
     threshold: usize,
     encoder: Mutex<RefCell<InMemoryEncoder>>,
-    sender: mpsc::Sender<Packet>,
+    addr: Addr<LogClient>,
 }
 
 impl Logger {
@@ -38,7 +39,7 @@ impl Logger {
         level: Level,
         compression: Compression,
         threshold: usize,
-        sender: mpsc::Sender<Packet>,
+        addr: Addr<LogClient>,
     ) -> Result<Self, Error> {
         // Create new LZ4 encoder which may potentially fail.
         let encoder = Logger::new_encoder(&compression)?;
@@ -48,7 +49,7 @@ impl Logger {
             compression,
             threshold,
             encoder: Mutex::new(RefCell::new(encoder)),
-            sender,
+            addr,
         })
     }
 
@@ -85,11 +86,7 @@ impl Drop for Logger {
             return;
         }
         // Send a chunk of data using the connection
-        self.sender
-            .clone()
-            .send(Packet::Chunk(data))
-            .wait()
-            .expect("Unable to send a logs");
+        self.addr.send(LogChunk(data)).wait();
     }
 }
 
@@ -129,11 +126,11 @@ impl Log for Logger {
             let data = self.rotate(&encoder).expect("Unable to rotate the buffer");
             // Acquire sender instance
             // Send a chunk of data using the connection
-            self.sender
-                .clone()
-                .send(Packet::Chunk(data))
-                .wait()
-                .expect("Unable to send a logs");
+            eprintln!("Sending {} bytes", data.len());
+            Arbiter::spawn(self.addr.send(LogChunk(data)).map_err(|e| {
+                eprintln!("Unable to send data {}", e);
+                ()
+            }));
         }
     }
 

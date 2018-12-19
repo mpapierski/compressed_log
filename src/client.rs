@@ -1,17 +1,32 @@
-use actix::{Actor, ActorContext, Arbiter, AsyncContext, Context, Handler, StreamHandler, System};
+use actix::{
+    Actor, ActorContext, ActorFuture, Addr, Arbiter, AsyncContext, Context, ContextFutureSpawner,
+    Handler, ResponseFuture, StreamHandler, Supervised, Supervisor, System, WrapFuture,
+};
 use actix_web::ws::{Client, ClientWriter, Message, ProtocolError};
+use backoff::{backoff::Backoff, ExponentialBackoff};
+use failure::Error;
 use futures::future::ok;
 use futures::prelude::*;
 use futures::sync::mpsc;
+use std::cell::RefCell;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 // This is the websocket client
-pub struct LogClient(ClientWriter);
+pub struct LogClient {
+    url: String,
+    backoff: ExponentialBackoff,
+    writer: Option<ClientWriter>,
+}
 
-//
-#[derive(Debug)]
-pub enum Packet {
-    Chunk(Vec<u8>),
+impl LogClient {
+    pub fn new(url: &str) -> LogClient {
+        LogClient {
+            url: url.to_string(),
+            backoff: ExponentialBackoff::default(),
+            writer: None,
+        }
+    }
 }
 
 impl LogClient {
@@ -19,85 +34,60 @@ impl LogClient {
     /// and returns a handle to a sender which will accept any
     /// kind of packet data.
     ///
-    /// TODO: This wraps whole actix actor thing, and probably
-    /// just exposing LogClient as an actor could be easier to use.
-    pub fn connect(url: &str) -> mpsc::Sender<Packet> {
+    pub fn connect(url: &str) -> Addr<LogClient> {
         // Bound of 1 to limit the rate of messages
-        let (sender, receiver) = mpsc::channel(1);
-        println!("URL: {}", url);
-        Arbiter::spawn(
-            Client::new(url)
-                .connect()
-                .map_err(|e| {
-                    eprintln!("Connect error: {}", e);
-                    ()
-                })
-                .and_then(|(reader, writer)| {
-                    let addr = LogClient::create(|ctx| {
-                        LogClient::add_stream(reader, ctx);
-                        LogClient(writer)
-                    });
-                    println!("Got reader and writer");
-
-                    receiver
-                        .for_each(move |message| {
-                            println!("Got something from receiver");
-                            // Here the packet is popped already
-                            match message {
-                                Packet::Chunk(data) => {
-                                    println!("Received chunk of size {}", data.len());
-                                    addr.send(LogChunk(data))
-                                        .and_then(|_| {
-                                            println!("Sent chunk message");
-                                            ok(())
-                                        })
-                                        .map_err(|e| {
-                                            eprintln!("Send error: {}", e);
-                                            ()
-                                        })
-                                }
-                            }
-                        })
-                        .and_then(|_| {
-                            println!("Done");
-                            ok(())
-                        })
-                        .into_future()
-                }),
-        );
-        sender
+        let log_client = LogClient::new(url);
+        let addr = Supervisor::start(|ctx| log_client);
+        addr
     }
 }
 
-#[derive(Message)]
-pub struct LogChunk(Vec<u8>);
+impl actix::Supervised for LogClient {
+    fn restarting(&mut self, ctx: &mut Context<LogClient>) {
+        println!("restarting");
+    }
+}
 
 impl Actor for LogClient {
     type Context = Context<Self>;
 
     fn started(&mut self, ctx: &mut Context<Self>) {
-        // start heartbeats otherwise server will disconnect after 10 seconds
-        self.hb(ctx)
-    }
-
-    fn stopped(&mut self, _: &mut Context<Self>) {
-        println!("Disconnected");
-
-        // Stop application on disconnect
-        System::current().stop();
+        Client::new(self.url.clone())
+            .connect()
+            .into_actor(self)
+            .map(move |(reader, writer), mut act, mut ctx| {
+                // Reset the backoff timer
+                act.backoff.reset();
+                // Add reader stream
+                LogClient::add_stream(reader, ctx);
+                // Keep the writer for later
+                act.writer = Some(writer);
+                // Start pinging
+                act.hb(&mut ctx);
+            })
+            .map_err(|err, act, ctx| {
+                eprintln!("Unable to connect: {}", err);
+                if let Some(timeout) = act.backoff.next_backoff() {
+                    eprintln!("Next timeout: {:?}", timeout);
+                    ctx.run_later(timeout, |_, ctx| ctx.stop());
+                }
+            })
+            .wait(ctx);
+        println!("Started");
     }
 }
 
 impl LogClient {
     fn hb(&self, ctx: &mut Context<Self>) {
-        // Do a heartbeat to keep the WS connection alive
-        ctx.run_later(Duration::new(1, 0), |act, ctx| {
-            act.0.ping("");
+        ctx.run_later(Duration::new(1, 0), |mut act, ctx| {
+            act.writer.as_mut().unwrap().ping("");
             act.hb(ctx);
-            // TODO: client should also check for a timeout here, similar to the server code
         });
     }
 }
+
+#[derive(Message)]
+pub struct LogChunk(pub Vec<u8>);
 
 /// Handle sending a chunk of compressed log data
 impl Handler<LogChunk> for LogClient {
@@ -106,7 +96,7 @@ impl Handler<LogChunk> for LogClient {
     fn handle(&mut self, msg: LogChunk, _ctx: &mut Context<Self>) {
         // Send a chunk using binary frame
         eprintln!("Send binary {:?}", msg.0);
-        self.0.binary(msg.0)
+        self.writer.as_mut().unwrap().binary(msg.0)
     }
 }
 
