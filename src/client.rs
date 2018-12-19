@@ -115,7 +115,7 @@ impl StreamHandler<Message, ProtocolError> for LogClient {
     fn handle(&mut self, msg: Message, _ctx: &mut Context<Self>) {
         // This is mostly boilerplate. We don't expect any message back.
         match msg {
-            Message::Pong(what) => self.heartbeat = SystemTime::now(),
+            Message::Pong(_) => self.heartbeat = SystemTime::now(),
             Message::Text(txt) => println!("Server: {:?}", txt),
             Message::Binary(bin) => println!("Binary: {:?}", bin),
             _ => (),
