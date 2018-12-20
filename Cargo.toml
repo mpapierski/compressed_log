@@ -3,6 +3,13 @@ name = "compressed_log"
 version = "0.1.0"
 authors = ["Michał Papierski <michal@papierski.net>"]
 edition = "2018"
+include = [
+    "**/*.rs",
+    "Cargo.toml"
+]
+description = "Log compression on the fly"
+repository = "https://github.com/mpapierski/compressed_log"
+license-file = "LICENSE"
 
 [dependencies]
 lz4 = "1.23.1"
