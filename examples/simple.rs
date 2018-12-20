@@ -33,7 +33,7 @@ fn main() -> Result<(), Error> {
         .set_level(level)
         .set_compression_level(Compression::Slow)
         .set_sink_url("http://127.0.0.1:8000/sink/")
-        .set_threshold(128)
+        .set_threshold(16384)
         .build()?;
     log::set_boxed_logger(Box::new(logger))?;
     log::set_max_level(level.to_level_filter());
