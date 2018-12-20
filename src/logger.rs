@@ -83,10 +83,13 @@ impl Drop for Logger {
         let encoder = self.encoder.lock().expect("Unable to acquire buffer lock");
         let data = self.rotate(&encoder).expect("Unable to rotate the buffer");
         if data.is_empty() {
+            // No need to push empty data
             return;
         }
         // Send a chunk of data using the connection
-        self.addr.send(LogChunk(data)).wait();
+        if let Err(err) = self.addr.send(LogChunk(data)).wait() {
+            eprintln!("Unable to send log at the end of logger lifetime: {}", err);
+        }
     }
 }
 
