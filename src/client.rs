@@ -55,6 +55,7 @@ impl Actor for LogClient {
     type Context = Context<Self>;
 
     fn started(&mut self, ctx: &mut Context<Self>) {
+        eprintln!("Trying to connect to {}", self.url.clone());
         Client::new(self.url.clone())
             .connect()
             .into_actor(self)
@@ -90,7 +91,9 @@ impl LogClient {
                 ctx.stop();
                 return;
             }
-            act.writer.as_mut().unwrap().ping("");
+            if let Some(ref mut writer) = act.writer.as_mut() {
+                writer.ping("");
+            }
             act.hb(ctx);
         });
     }
@@ -106,7 +109,9 @@ impl Handler<LogChunk> for LogClient {
     fn handle(&mut self, msg: LogChunk, _ctx: &mut Context<Self>) {
         // Send a chunk using binary frame
         eprintln!("Send binary {:?}", msg.0);
-        self.writer.as_mut().unwrap().binary(msg.0)
+        if let Some(ref mut writer) = self.writer.as_mut() {
+            writer.binary(msg.0)
+        }
     }
 }
 
