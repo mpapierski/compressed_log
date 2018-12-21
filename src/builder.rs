@@ -1,7 +1,9 @@
-use crate::client::LogClient;
+use crate::client::{Connect, LogClient};
 use crate::logger::Logger;
 use crate::lz4::Compression;
+use actix::{Actor, Arbiter, Supervisor};
 use failure::Error;
+use futures::future::Future;
 use log::Level;
 
 pub struct LoggerBuilder {
@@ -49,11 +51,16 @@ impl LoggerBuilder {
             self.sink_url.is_some(),
             "Unable to create Logger instance without sink url"
         );
-        Logger::new(
-            self.level,
-            self.compression,
-            self.threshold,
-            LogClient::connect(&self.sink_url.as_ref().unwrap()),
-        )
+
+        let addr = {
+            let addr = Supervisor::start(|ctx| LogClient::default());
+            let url = self.sink_url.as_ref().unwrap().clone();
+            Arbiter::spawn(addr.send(Connect(url)).map_err(|e| {
+                eprintln!("Unable to send data {}", e);
+                ()
+            }));
+            addr
+        };
+        Logger::new(self.level, self.compression, self.threshold, addr)
     }
 }

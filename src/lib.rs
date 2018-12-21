@@ -8,6 +8,10 @@ extern crate actix;
 #[macro_use]
 extern crate failure;
 
+#[macro_use]
+#[cfg(test)]
+
+extern crate log;
 #[cfg(test)]
 mod tests {
     #[test]

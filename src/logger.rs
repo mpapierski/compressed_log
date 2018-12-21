@@ -142,18 +142,45 @@ impl Log for Logger {
 
 #[test]
 fn logger() {
-    use log::{Level, Record};
-    let record = Record::builder()
-        .args(format_args!("Error!"))
-        .level(Level::Error)
-        .target("myApp")
-        .file(Some("server.rs"))
-        .line(Some(144))
-        .module_path(Some("server"))
-        .build();
+    use actix::Actor;
+    use actix::System;
+    use futures::future::IntoFuture;
+    use futures::future::{lazy, ok};
+    use lz4::Decoder;
+    use std::any::Any;
+    use std::io;
+    use std::sync::mpsc;
 
-    // TODO: Uncomment this
-    // let logger = Logger::new(Level::Trace, Compression::Fast).unwrap();
-    // logger.log(&record);
-    // assert!(logger.len().unwrap() > 0usize);
+    let (tx, rx) = mpsc::channel();
+
+    let addr = LogClient::mock(Box::new(move |v, _ctx| -> Box<Any> {
+        if let Some(msg) = v.downcast_ref::<LogChunk>() {
+            println!("Msg {:?}", msg.0);
+            tx.send(msg.0.clone()).unwrap();
+            System::current().stop();
+        } else {
+
+        }
+        Box::new(Some(()))
+    }));
+
+    let system = System::new("test");
+
+    let logger = Logger::new(Level::Info, Compression::Fast, 128, addr.start()).unwrap();
+
+    Arbiter::spawn(lazy(||{
+        log::set_boxed_logger(Box::new(logger));
+        log::set_max_level(Level::Info.to_level_filter());
+        println!("foo");
+        info!("This log line is very long and it uses placeholders to verify that they are properly filled {} {:?}", "Hello, world!", 123456789u64);
+        ok(())
+    }).into_future());
+    system.run();
+
+    let data = rx.recv().unwrap();
+    let mut decoder = Decoder::new(&data[..]).expect("Unable to create decoder");
+    let mut output: Vec<u8> = Vec::new();
+    io::copy(&mut decoder, &mut output).expect("Unable to copy data from decoder to output buffer");
+    let s = String::from_utf8(output).unwrap();
+    assert!(s.ends_with("This log line is very long and it uses placeholders to verify that they are properly filled Hello, world! 123456789\n"), "{}", s);
 }

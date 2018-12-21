@@ -12,8 +12,16 @@ use std::cell::RefCell;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 
+#[cfg(test)]
+use actix::actors::mocker::Mocker;
+
+#[cfg(test)]
+pub type LogClient = Mocker<LogClientAct>;
+#[cfg(not(test))]
+pub type LogClient = LogClientAct;
+
 // This is the websocket client
-pub struct LogClient {
+pub struct LogClientAct {
     url: String,
     backoff: ExponentialBackoff,
     writer: Option<ClientWriter>,
@@ -21,10 +29,10 @@ pub struct LogClient {
     heartbeat: SystemTime,
 }
 
-impl LogClient {
-    pub fn new(url: &str) -> LogClient {
-        LogClient {
-            url: url.to_string(),
+impl Default for LogClientAct {
+    fn default() -> LogClientAct {
+        LogClientAct {
+            url: String::new(),
             backoff: ExponentialBackoff::default(),
             writer: None,
             heartbeat: SystemTime::now(),
@@ -32,57 +40,24 @@ impl LogClient {
     }
 }
 
-impl LogClient {
-    /// Spawns async connection to a remote websocket server,
-    /// and returns a handle to a sender which will accept any
-    /// kind of packet data.
-    ///
-    pub fn connect(url: &str) -> Addr<LogClient> {
-        // Bound of 1 to limit the rate of messages
-        let log_client = LogClient::new(url);
-        let addr = Supervisor::start(|ctx| log_client);
-        addr
-    }
-}
-
-impl actix::Supervised for LogClient {
-    fn restarting(&mut self, ctx: &mut Context<LogClient>) {
+impl actix::Supervised for LogClientAct {
+    fn restarting(&mut self, ctx: &mut Context<LogClientAct>) {
         println!("restarting");
     }
 }
 
-impl Actor for LogClient {
+impl Actor for LogClientAct {
     type Context = Context<Self>;
 
     fn started(&mut self, ctx: &mut Context<Self>) {
-        eprintln!("Trying to connect to {}", self.url.clone());
-        Client::new(self.url.clone())
-            .connect()
-            .into_actor(self)
-            .map(move |(reader, writer), mut act, mut ctx| {
-                // Reset the backoff timer
-                act.backoff.reset();
-                // Add reader stream
-                LogClient::add_stream(reader, ctx);
-                // Keep the writer for later
-                act.writer = Some(writer);
-                // Start pinging
-                act.heartbeat = SystemTime::now();
-                act.hb(&mut ctx);
-            })
-            .map_err(|err, act, ctx| {
-                eprintln!("Unable to connect: {}", err);
-                if let Some(timeout) = act.backoff.next_backoff() {
-                    eprintln!("Next timeout: {:?}", timeout);
-                    ctx.run_later(timeout, |_, ctx| ctx.stop());
-                }
-            })
-            .wait(ctx);
         println!("Started");
+        if !self.url.is_empty() {
+            ctx.notify(Connect(self.url.clone()))
+        }
     }
 }
 
-impl LogClient {
+impl LogClientAct {
     fn hb(&self, ctx: &mut Context<Self>) {
         ctx.run_later(Duration::new(1, 0), |mut act, ctx| {
             eprintln!("Heartbeat elapsed: {:?}", act.heartbeat.elapsed().unwrap());
@@ -100,10 +75,43 @@ impl LogClient {
 }
 
 #[derive(Message)]
+pub struct Connect(pub String);
+impl Handler<Connect> for LogClientAct {
+    type Result = ();
+
+    fn handle(&mut self, msg: Connect, ctx: &mut Context<Self>) {
+        // Send a chunk using binary frame
+        self.url = msg.0.clone();
+        Client::new(msg.0.clone())
+            .connect()
+            .into_actor(self)
+            .map(move |(reader, writer), mut act, mut ctx| {
+                // Reset the backoff timer
+                act.backoff.reset();
+                // Add reader stream
+                LogClientAct::add_stream(reader, ctx);
+                // Keep the writer for later
+                act.writer = Some(writer);
+                // Start pinging
+                act.heartbeat = SystemTime::now();
+                act.hb(&mut ctx);
+            })
+            .map_err(|err, act, ctx| {
+                eprintln!("Unable to connect to: {}", err);
+                if let Some(timeout) = act.backoff.next_backoff() {
+                    eprintln!("Next timeout: {:?}", timeout);
+                    ctx.run_later(timeout, |_, ctx| ctx.stop());
+                }
+            })
+            .wait(ctx);
+    }
+}
+
+#[derive(Message)]
 pub struct LogChunk(pub Vec<u8>);
 
 /// Handle sending a chunk of compressed log data
-impl Handler<LogChunk> for LogClient {
+impl Handler<LogChunk> for LogClientAct {
     type Result = ();
 
     fn handle(&mut self, msg: LogChunk, _ctx: &mut Context<Self>) {
@@ -116,7 +124,7 @@ impl Handler<LogChunk> for LogClient {
 }
 
 /// Handle server websocket messages
-impl StreamHandler<Message, ProtocolError> for LogClient {
+impl StreamHandler<Message, ProtocolError> for LogClientAct {
     fn handle(&mut self, msg: Message, _ctx: &mut Context<Self>) {
         // This is mostly boilerplate. We don't expect any message back.
         match msg {
