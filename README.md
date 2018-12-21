@@ -1,6 +1,11 @@
 # compressed_log
 
-A Rust crate to compress logs on the fly, and send them over the network after reaching a configured threshold.
+A Rust crate designed to allow for easy and efficient remote data collection from IOT devices by plugging
+into Rust's logging infrastructure.
+
+Log messages are compressed using ultra lightweight LZ4 compression and then streamed over websockets to
+a destination server, where they are dumped to a file for processing. This reduces the transit bandwidth
+usage by more than 90% without consuming a large number of CPU cycles.
 
 # Features
 
@@ -35,4 +40,3 @@ Server:
 WIP.
 
 By default `compressed_log` expects WebSocket endpoint to understand binary messages that contains data compressed with LZ4.
-
