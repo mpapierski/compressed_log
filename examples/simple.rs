@@ -4,7 +4,6 @@ use actix::{Arbiter, System};
 use compressed_log::builder::LoggerBuilder;
 use compressed_log::lz4::Compression;
 use failure::Error;
-use futures::future::ok;
 use futures::prelude::*;
 use futures::sync::mpsc::channel;
 use log::Level;

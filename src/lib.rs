@@ -1,3 +1,6 @@
+#![warn(clippy::all)]
+#![allow(clippy::pedantic)]
+
 pub mod builder;
 pub mod client;
 pub mod format;

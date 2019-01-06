@@ -5,11 +5,9 @@
 use crate::client::{LogChunk, LogClient};
 use crate::format::{BinaryLogFormat, LogFormat};
 use crate::lz4::{Compression, Encoder, EncoderBuilder, InMemoryEncoder};
-use actix::{Addr, Arbiter, AsyncContext};
+use actix::{Addr, Arbiter};
 use failure::Error;
 use futures::future::Future;
-use futures::sink::Sink;
-use futures::sync::mpsc;
 use log::{Level, Log, Metadata, Record};
 use std::cell::RefCell;
 use std::io::Write;
@@ -25,7 +23,7 @@ pub struct Logger {
 }
 
 impl Logger {
-    pub fn new_encoder(compression: &Compression) -> Result<Encoder<Vec<u8>>, Error> {
+    pub fn new_encoder(compression: Compression) -> Result<Encoder<Vec<u8>>, Error> {
         // This is the empty buffer that needs to be passed as output of LZ4
         let buffer = Vec::<u8>::new();
         // TODO: This should be more configurable
@@ -42,7 +40,7 @@ impl Logger {
         addr: Addr<LogClient>,
     ) -> Result<Self, Error> {
         // Create new LZ4 encoder which may potentially fail.
-        let encoder = Logger::new_encoder(&compression)?;
+        let encoder = Logger::new_encoder(compression)?;
         // Return the logger instance
         Ok(Self {
             level,
@@ -55,8 +53,8 @@ impl Logger {
 
     /// Gets the length of compressed buffer.
     ///
-    /// TODO: This function is probably unnecessary in production.
-    fn len(&self) -> Result<usize, Error> {
+    /// This function is probably unnecessary in production.
+    fn _len(&self) -> Result<usize, Error> {
         let encoder = self.encoder.lock().unwrap();
         let encoder = encoder.borrow();
         Ok(encoder.writer().len())
@@ -65,13 +63,13 @@ impl Logger {
     /// buffer.
     fn rotate(&self, encoder: &RefCell<InMemoryEncoder>) -> Result<Vec<u8>, Error> {
         // Prepare new LZ4 encoder
-        let new_encoder = Logger::new_encoder(&self.compression)?;
+        let new_encoder = Logger::new_encoder(self.compression)?;
         // Retrieve the old encoder by swapping it with the new one
         let old_encoder = encoder.replace(new_encoder);
         // Finish up the last bits of LZ4 stream and get the writer
         let (writer, result) = old_encoder.finish();
         // Check for any compression errors at the last step
-        let _ = result?;
+        result?;
         // Return the data buffer
         Ok(writer)
     }
@@ -132,7 +130,6 @@ impl Log for Logger {
             eprintln!("Sending {} bytes", data.len());
             Arbiter::spawn(self.addr.send(LogChunk(data)).map_err(|e| {
                 eprintln!("Unable to send data {}", e);
-                ()
             }));
         }
     }
@@ -169,10 +166,10 @@ fn logger() {
     let logger = Logger::new(Level::Info, Compression::Fast, 128, addr.start()).unwrap();
 
     Arbiter::spawn(lazy(||{
-        log::set_boxed_logger(Box::new(logger));
+        let _ = log::set_boxed_logger(Box::new(logger));
         log::set_max_level(Level::Info.to_level_filter());
         println!("foo");
-        info!("This log line is very long and it uses placeholders to verify that they are properly filled {} {:?}", "Hello, world!", 123456789u64);
+        info!("This log line is very long and it uses placeholders to verify that they are properly filled {} {:?}", "Hello, world!", 123_456_789u64);
         ok(())
     }).into_future());
     system.run();

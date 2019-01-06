@@ -1,15 +1,9 @@
 use actix::{
-    Actor, ActorContext, ActorFuture, Addr, Arbiter, AsyncContext, Context, ContextFutureSpawner,
-    Handler, ResponseFuture, StreamHandler, Supervised, Supervisor, System, WrapFuture,
+    Actor, ActorContext, ActorFuture, AsyncContext, Context, ContextFutureSpawner, Handler,
+    StreamHandler, WrapFuture,
 };
 use actix_web::ws::{Client, ClientWriter, Message, ProtocolError};
 use backoff::{backoff::Backoff, ExponentialBackoff};
-use failure::Error;
-use futures::future::ok;
-use futures::prelude::*;
-use futures::sync::mpsc;
-use std::cell::RefCell;
-use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 
 #[cfg(test)]
@@ -41,7 +35,7 @@ impl Default for LogClientAct {
 }
 
 impl actix::Supervised for LogClientAct {
-    fn restarting(&mut self, ctx: &mut Context<LogClientAct>) {
+    fn restarting(&mut self, _ctx: &mut Context<LogClientAct>) {
         println!("restarting");
     }
 }
@@ -59,7 +53,7 @@ impl Actor for LogClientAct {
 
 impl LogClientAct {
     fn hb(&self, ctx: &mut Context<Self>) {
-        ctx.run_later(Duration::new(1, 0), |mut act, ctx| {
+        ctx.run_later(Duration::new(1, 0), |act, ctx| {
             eprintln!("Heartbeat elapsed: {:?}", act.heartbeat.elapsed().unwrap());
             if act.heartbeat.elapsed().unwrap() >= Duration::from_secs(5) {
                 eprintln!("Server timed out!");
