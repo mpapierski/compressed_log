@@ -2,14 +2,21 @@
 
 A Rust crate to compress logs on the fly, and send them over the network after reaching a configured threshold.
 
+This is useful for when you have a fleet of embedded devices running a Rust program, instead of building a complicated
+metrics framework you can collect the normal Rust log output securely using https and efficiently using LZ4 compression.
+
+LZ4 is both fast enough to run on even the most resource starved devices and effective enough to reduce log size by 20x
+or more from naive byte streams.
+
+On the server side logs are simply dumped into a file, where they can be aggregated and processed by standard log collection
+tools.
+
 # Features
 
 - Uses [log](https://crates.io/crates/log) API
 - LZ4 to compress log on the fly
 - Transmits compressed data over persistent WebSocket connection
 - Configurable threshold which will trigger in-memory log rotation and data transmission.
-
-WIP.
 
 # Example
 
@@ -35,4 +42,3 @@ Server:
 WIP.
 
 By default `compressed_log` expects WebSocket endpoint to understand binary messages that contains data compressed with LZ4.
-
