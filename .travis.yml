@@ -41,5 +41,5 @@ deploy:
     skip_cleanup: true
     script: cargo publish --token ${CRATESIO_TOKEN}
     on:
-      condition: x$CRATESIO_TOKEN != 'x' && $TRAVIS_RUST_VERSION = stable && x$SKIP_DEPLOY='x'
+      condition: x$CRATESIO_TOKEN != 'x' && $TRAVIS_RUST_VERSION = stable && x$SKIP_DEPLOY = 'x'
       tags: true
