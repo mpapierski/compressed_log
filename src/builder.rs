@@ -55,8 +55,8 @@ impl LoggerBuilder {
         let addr = {
             let addr = Supervisor::start(|_ctx| LogClient::default());
             let url = self.sink_url.as_ref().unwrap().clone();
-            Arbiter::spawn(addr.send(Connect(url)).map_err(|e| {
-                eprintln!("Unable to send data {}", e);
+            Arbiter::spawn(addr.send(Connect(url)).map_err(|_e| {
+                debug_eprintln!("Unable to send data {}", _e);
             }));
             addr
         };

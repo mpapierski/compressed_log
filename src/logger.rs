@@ -76,8 +76,8 @@ impl Drop for Logger {
             return;
         }
         // Send a chunk of data using the connection
-        if let Err(err) = self.addr.send(LogChunk(data)).wait() {
-            eprintln!("Unable to send log at the end of logger lifetime: {}", err);
+        if let Err(_err) = self.addr.send(LogChunk(data)).wait() {
+            debug_eprintln!("Unable to send log at the end of logger lifetime: {}", _err);
         }
     }
 }
@@ -118,9 +118,9 @@ impl Log for Logger {
             let data = self.rotate(&encoder).expect("Unable to rotate the buffer");
             // Acquire sender instance
             // Send a chunk of data using the connection
-            eprintln!("Sending {} bytes", data.len());
-            Arbiter::spawn(self.addr.send(LogChunk(data)).map_err(|e| {
-                eprintln!("Unable to send data {}", e);
+            debug_eprintln!("Sending {} bytes", data.len());
+            Arbiter::spawn(self.addr.send(LogChunk(data)).map_err(|_e| {
+                debug_eprintln!("Unable to send data {}", _e);
             }));
         }
     }
