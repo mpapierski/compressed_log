@@ -4,7 +4,6 @@ use actix::{Arbiter, System};
 use compressed_log::builder::LoggerBuilder;
 use compressed_log::lz4::Compression;
 use failure::Error;
-use futures::future::ok;
 use futures::prelude::*;
 use futures::sync::mpsc::channel;
 use log::Level;
@@ -29,7 +28,7 @@ fn main() -> Result<(), Error> {
     let sys = System::new("simple");
     // Initialize compressed logger
     let level = Level::Info;
-    let logger = LoggerBuilder::new()
+    let logger = LoggerBuilder::default()
         .set_level(level)
         .set_compression_level(Compression::Slow)
         .set_sink_url("http://127.0.0.1:8000/sink/")
@@ -46,10 +45,7 @@ fn main() -> Result<(), Error> {
                 info!("Line: {}", line);
                 Ok(())
             })
-            .map_err(|e| {
-                eprintln!("Stdin error: {}", e);
-                ()
-            }),
+            .map_err(|e| eprintln!("Stdin error: {}", e)),
     );
 
     sys.run();

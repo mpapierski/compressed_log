@@ -16,8 +16,8 @@ pub enum Compression {
 }
 
 impl Compression {
-    pub fn to_level(&self) -> u32 {
-        match *self {
+    pub fn to_level(self) -> u32 {
+        match self {
             Compression::Fast => 1,
             Compression::Slow => 9,
             Compression::Level(value) => value,

@@ -24,10 +24,7 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for Ws {
                 println!("Ping");
                 ctx.pong(&msg)
             }
-            ws::Message::Text(text) => {
-                println!("Text: {} bytes", text.len());
-                ()
-            }
+            ws::Message::Text(text) => println!("Text: {} bytes", text.len()),
             ws::Message::Binary(mut bin) => {
                 println!("Binary: {} bytes", bin.len());
                 let bytes = bin.take().to_vec();
@@ -39,7 +36,6 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for Ws {
             }
             _ => {
                 println!("Unknown message");
-                ()
             }
         }
     }

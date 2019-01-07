@@ -1,7 +1,7 @@
 use crate::client::{Connect, LogClient};
 use crate::logger::Logger;
 use crate::lz4::Compression;
-use actix::{Actor, Arbiter, Supervisor};
+use actix::{Arbiter, Supervisor};
 use failure::Error;
 use futures::future::Future;
 use log::Level;
@@ -13,8 +13,8 @@ pub struct LoggerBuilder {
     threshold: usize,
 }
 
-impl LoggerBuilder {
-    pub fn new() -> LoggerBuilder {
+impl Default for LoggerBuilder {
+    fn default() -> LoggerBuilder {
         LoggerBuilder {
             /// Log all messages by default
             level: Level::Trace,
@@ -25,15 +25,15 @@ impl LoggerBuilder {
             threshold: 32000usize,
         }
     }
+}
+
+impl LoggerBuilder {
     pub fn set_level(&mut self, level: Level) -> &mut Self {
         self.level = level;
         self
     }
     /// Sets compression level
-    pub fn set_compression_level<'a>(
-        &'a mut self,
-        compression: Compression,
-    ) -> &'a mut LoggerBuilder {
+    pub fn set_compression_level(&mut self, compression: Compression) -> &mut LoggerBuilder {
         self.compression = compression;
         self
     }
@@ -53,14 +53,13 @@ impl LoggerBuilder {
         );
 
         let addr = {
-            let addr = Supervisor::start(|ctx| LogClient::default());
+            let addr = Supervisor::start(|_ctx| LogClient::default());
             let url = self.sink_url.as_ref().unwrap().clone();
             Arbiter::spawn(addr.send(Connect(url)).map_err(|e| {
                 eprintln!("Unable to send data {}", e);
-                ()
             }));
             addr
         };
-        Logger::new(self.level, self.compression, self.threshold, addr)
+        Logger::with_level(self.level, self.compression, self.threshold, addr)
     }
 }
