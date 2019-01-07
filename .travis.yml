@@ -21,13 +21,15 @@ matrix:
   include:
   - name: Rustfmt
     rust: stable
-    ? env
+    env:
+      - SKIP_DEPLOY="yes"
     script:
       - rustup component add rustfmt-preview
       - cargo fmt --all -- --check
   - name: Clippy
     rust: stable
-    ? env
+    env:
+      - SKIP_DEPLOY="yes"
     before_script:
       - rustup component add clippy-preview
     script:
@@ -39,5 +41,5 @@ deploy:
     skip_cleanup: true
     script: cargo publish --token ${CRATESIO_TOKEN}
     on:
-      condition: x$CRATESIO_TOKEN != 'x' && $TRAVIS_RUST_VERSION = stable
+      condition: x$CRATESIO_TOKEN != 'x' && $TRAVIS_RUST_VERSION = stable && x$SKIP_DEPLOY='x'
       tags: true
