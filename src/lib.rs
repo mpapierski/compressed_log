@@ -1,5 +1,6 @@
 #[macro_use]
 mod macros;
+
 pub mod builder;
 pub mod client;
 pub mod format;
