@@ -21,11 +21,13 @@ matrix:
   include:
   - name: Rustfmt
     rust: stable
+    ? env
     script:
       - rustup component add rustfmt-preview
       - cargo fmt --all -- --check
   - name: Clippy
     rust: stable
+    ? env
     before_script:
       - rustup component add clippy-preview
     script:
