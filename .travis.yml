@@ -1,7 +1,6 @@
 language: rust
 cache: cargo
-
-services: docker
+dist: xenial
 
 rust:
   - stable
@@ -12,13 +11,9 @@ env:
   global:
     - secure: "GqOVyTWbNFPnnU9/VXj8ddGw/6DCDPbb8CqknioRozCPQ2zvlGZk8WJdUOLxpWmsrwZQdZlqIHOTA0fg+TyTLHPCdDVgDTl24NgGSRf526TFCJdXBKs69ZO5H3OWn94J5X3UUehZeEa/0mA61MapG2wT+4aFBokmXKOOnhZkqKuvMOMouE66HgB7Gl8swcFeRPr3iqDMzM7+JzHLmxIFWXOBn1rv6DvojR3RiIa2/gRdZjqRGG9/SLOrK8b7QoLS0UqmNiyjTSDO9sHvbmlVmOcEAiCQ928af5toqpz8yQjWtCtQoXLZOMyahKmXliTedD/c8xFvRJTuPvFAiDXOItRMcLu/+IWghT3kHEgO8N5alBi7pJoo6qp0oXIVnZs3r+WQ8l2QCYqEnq2OWR4oPTYIl+pLi6pQs1JryYgdTUquSfUFX50ez0jcCh2F/iJTLLafQ0DVyiNwJp3RVc7xrTh3LGC8sw0a2sLewpnP6etSYMq5St3VhhvvlTQ5qq+kFdMv8ZA9oZ1fl5H+OBwwqyRmv+3ROhyKbhgt+yvlxkk91JnjIjAZKRPbaUv7kImCFnk2gZyMIxMCCxq8CIUpPJ10SHlrjeSAUC27lQMMS4AaBVSg1Ztw1yfZwMxID1ueOs5hnmZDPhQJutg9gfs+f0jQ5uouCsyCV423lpMR8so="
 
-before_install:
-  - command -v cross 1>/dev/null || cargo install cross
-
 script:
-  - cross build --target x86_64-unknown-linux-musl --verbose --all
-  - cross test --target x86_64-unknown-linux-musl --verbose --all
-
+  - cargo build --verbose --all
+  - cargo test --verbose --all
 
 matrix:
   allow_failures:
