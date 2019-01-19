@@ -6,7 +6,7 @@ use compressed_log::lz4::Compression;
 use failure::Error;
 use futures::prelude::*;
 use futures::sync::mpsc::channel;
-use log::Level;
+use log::{Level, Record};
 use std::io::{self, BufRead};
 use std::thread;
 
@@ -33,6 +33,7 @@ fn main() -> Result<(), Error> {
         .set_compression_level(Compression::Slow)
         .set_sink_url("http://127.0.0.1:8000/sink/")
         .set_threshold(1024)
+        .set_format(Box::new(|record: &Record| format!("{}\n", record.args())))
         .build()?;
     log::set_boxed_logger(Box::new(logger))?;
     log::set_max_level(level.to_level_filter());

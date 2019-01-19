@@ -3,14 +3,14 @@
 //! strategy.
 
 use crate::client::{LogChunk, LogClient};
-use crate::format::{BinaryLogFormat, LogFormat};
 use crate::lz4::{Compression, Encoder, EncoderBuilder, InMemoryEncoder};
 use actix::{Addr, Arbiter};
+use chrono::{DateTime, Local};
 use failure::Error;
 use futures::future::Future;
 use log::{Level, Log, Metadata, Record};
 use std::cell::RefCell;
-use std::io::Write;
+use std::io::{self, Write};
 use std::sync::Mutex;
 
 /// A compressed logger structure.
@@ -20,6 +20,7 @@ pub struct Logger {
     threshold: usize,
     encoder: Mutex<RefCell<InMemoryEncoder>>,
     addr: Addr<LogClient>,
+    format: Box<Fn(&Record) -> String + Sync + Send>,
 }
 
 impl Logger {
@@ -38,6 +39,7 @@ impl Logger {
         compression: Compression,
         threshold: usize,
         addr: Addr<LogClient>,
+        format: Box<Fn(&Record) -> String + Sync + Send>,
     ) -> Result<Self, Error> {
         // Create new LZ4 encoder which may potentially fail.
         let encoder = Logger::new_encoder(compression)?;
@@ -48,6 +50,7 @@ impl Logger {
             threshold,
             encoder: Mutex::new(RefCell::new(encoder)),
             addr,
+            format,
         })
     }
     /// Rotates the internal LZ4 buffer and returns the compressed data
@@ -89,14 +92,16 @@ impl Log for Logger {
 
     fn log(&self, record: &Record) {
         if self.enabled(record.metadata()) {
-            // Prepare a binary log record formatter
-            let log_format = BinaryLogFormat::from_record(&record);
             // Acquire buffer instance
             let encoder = self.encoder.lock().expect("Unable to acquire buffer lock");
             // Serialize binary log record into the output buffer
-            log_format
-                .serialize(&mut *encoder.borrow_mut())
-                .expect("Unable to serialize a log record into the compressed stream");
+            let log_string = (self.format)(&record);
+
+            // First, write whole formatted string
+            encoder
+                .borrow_mut()
+                .write_all(log_string.as_bytes())
+                .expect("Unable to write data");
 
             // Flush internal buffers every time so we wouldn't accidentally rotate
             // without consistent data.
@@ -138,7 +143,6 @@ fn logger() {
     use std::any::Any;
     use std::io;
     use std::sync::mpsc;
-
     let (tx, rx) = mpsc::channel();
 
     let addr = LogClient::mock(Box::new(move |v, _ctx| -> Box<Any> {
@@ -154,7 +158,18 @@ fn logger() {
 
     let system = System::new("test");
 
-    let logger = Logger::with_level(Level::Info, Compression::Fast, 128, addr.start()).unwrap();
+    let format = Box::new(|record: &Record| {
+        let timestamp = Local::now();
+        format!(
+            "{} {:<5} [{}] {}\n",
+            timestamp.format("%Y-%m-%d %H:%M:%S"),
+            record.level().to_string(),
+            record.module_path().unwrap_or_default(),
+            record.args()
+        )
+    });
+    let logger =
+        Logger::with_level(Level::Info, Compression::Fast, 128, addr.start(), format).unwrap();
 
     Arbiter::spawn(lazy(|| {
         log::set_boxed_logger(Box::new(logger)).expect("Unable to set boxed logger");
