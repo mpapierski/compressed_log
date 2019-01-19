@@ -3,6 +3,7 @@ mod macros;
 
 pub mod builder;
 pub mod client;
+pub mod formatter;
 pub mod logger;
 pub mod lz4;
 

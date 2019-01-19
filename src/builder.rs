@@ -1,21 +1,19 @@
 use crate::client::{Connect, LogClient};
+use crate::formatter::{default_formatter, Formatter};
 use crate::logger::Logger;
 use crate::lz4::Compression;
 use actix::{Arbiter, Supervisor};
-use chrono::{DateTime, Local};
 use failure::Error;
 use futures::future::Future;
 use log::Level;
-use log::Record;
 use std::cell::RefCell;
-use std::io;
 
 pub struct LoggerBuilder {
     level: Level,
     compression: Compression,
     sink_url: Option<String>,
     threshold: usize,
-    format: RefCell<Option<Box<Fn(&Record) -> String + Sync + Send>>>,
+    format: RefCell<Box<Formatter>>,
 }
 
 impl Default for LoggerBuilder {
@@ -29,7 +27,7 @@ impl Default for LoggerBuilder {
             /// Default threshold is about ~32KB of compressed data
             threshold: 32000usize,
             /// Default format for backwards compatibility
-            format: RefCell::new(None),
+            format: RefCell::new(Box::new(default_formatter)),
         }
     }
 }
@@ -53,8 +51,8 @@ impl LoggerBuilder {
         self.threshold = threshold;
         self
     }
-    pub fn set_format(&mut self, format: Box<Fn(&Record) -> String + Sync + Send>) -> &mut Self {
-        self.format.replace(Some(format));
+    pub fn set_format(&mut self, format: Box<Formatter>) -> &mut Self {
+        self.format.replace(format);
         self
     }
     pub fn build(&self) -> Result<Logger, Error> {
@@ -72,19 +70,15 @@ impl LoggerBuilder {
             addr
         };
 
-        let format = match self.format.replace(None) {
-            Some(f) => f,
-            None => Box::new(|record: &Record| {
-                let timestamp = Local::now();
-                format!(
-                    "{} {:<5} [{}] {}\n",
-                    timestamp.format("%Y-%m-%d %H:%M:%S"),
-                    record.level().to_string(),
-                    record.module_path().unwrap_or_default(),
-                    record.args()
-                )
-            }),
-        };
-        Logger::with_level(self.level, self.compression, self.threshold, addr, format)
+        // Extract inner formatter by swapping it
+        let formatter = self.format.replace(Box::new(default_formatter));
+
+        Logger::with_level(
+            self.level,
+            self.compression,
+            self.threshold,
+            addr,
+            formatter,
+        )
     }
 }

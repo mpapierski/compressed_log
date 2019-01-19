@@ -5,12 +5,11 @@
 use crate::client::{LogChunk, LogClient};
 use crate::lz4::{Compression, Encoder, EncoderBuilder, InMemoryEncoder};
 use actix::{Addr, Arbiter};
-use chrono::{DateTime, Local};
 use failure::Error;
 use futures::future::Future;
 use log::{Level, Log, Metadata, Record};
 use std::cell::RefCell;
-use std::io::{self, Write};
+use std::io::Write;
 use std::sync::Mutex;
 
 /// A compressed logger structure.
@@ -137,6 +136,7 @@ impl Log for Logger {
 fn logger() {
     use actix::Actor;
     use actix::System;
+    use chrono::Local;
     use futures::future::IntoFuture;
     use futures::future::{lazy, ok};
     use lz4::Decoder;
