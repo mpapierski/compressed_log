@@ -4,6 +4,7 @@ use actix::{
 };
 use actix_web::ws::{Client, ClientWriter, Message, ProtocolError};
 use backoff::{backoff::Backoff, ExponentialBackoff};
+use futures::Future;
 use std::time::{Duration, SystemTime};
 
 #[cfg(test)]
@@ -78,6 +79,10 @@ impl Handler<Connect> for LogClientAct {
         self.url = msg.0.clone();
         Client::new(msg.0.clone())
             .connect()
+            .map_err(|e| {
+                println!("Error connecting to loggin server: {:?}", e);
+                ()
+            })
             .into_actor(self)
             .map(move |(reader, writer), mut act, mut ctx| {
                 // Reset the backoff timer
@@ -91,7 +96,6 @@ impl Handler<Connect> for LogClientAct {
                 act.hb(&mut ctx);
             })
             .map_err(|err, act, ctx| {
-                eprintln!("Unable to connect to: {}", err);
                 if let Some(timeout) = act.backoff.next_backoff() {
                     eprintln!("Next timeout: {:?}", timeout);
                     ctx.run_later(timeout, |_, ctx| ctx.stop());

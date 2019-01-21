@@ -17,12 +17,11 @@ tools.
 - LZ4 to compress log on the fly
 - Transmits compressed data over persistent WebSocket connection
 - Configurable threshold which will trigger in-memory log rotation and data transmission.
+- Fully architecture portable, including Mips and other BE architectures
 
 # Example
 
-Check out `examples` folder for more examples.
-
-WIP.
+Check out `examples` folder for more examples. Including custom formats for collected logs.
 
 Client:
 
@@ -39,6 +38,4 @@ log::set_max_level(level.to_level_filter());
 
 Server:
 
-WIP.
-
-By default `compressed_log` expects WebSocket endpoint to understand binary messages that contains data compressed with LZ4.
+The current server reference implementaiton is [compressed_log_sink](https://github.com/althea-mesh/compressed_log_sink)
