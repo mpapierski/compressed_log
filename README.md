@@ -1,5 +1,8 @@
 # compressed_log
 
+[![Latest Version](https://img.shields.io/crates/v/compressed_log.svg)](https://crates.io/crates/compressed_log)
+[![Documentation](https://docs.rs/compressed_log/badge.svg)](https://docs.rs/compressed_log)
+
 A Rust crate to compress logs on the fly, and send them over the network after reaching a configured threshold.
 
 This is useful for when you have a fleet of embedded devices running a Rust program, instead of building a complicated
