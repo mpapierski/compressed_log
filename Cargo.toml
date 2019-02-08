@@ -11,6 +11,9 @@ description = "Log compression on the fly"
 repository = "https://github.com/mpapierski/compressed_log"
 license-file = "LICENSE"
 
+[badges]
+travis-ci = { repository = "mpapierski/compressed_log", branch = "master" }
+
 [dependencies]
 lz4 = "1.23"
 log = { version = "0.4", features = ["std"] }
