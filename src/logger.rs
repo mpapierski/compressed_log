@@ -4,7 +4,7 @@
 
 use crate::client::{LogChunk, LogClient};
 use crate::lz4::{Compression, Encoder, EncoderBuilder, InMemoryEncoder};
-use actix::{Addr, Arbiter};
+use actix::Addr;
 use failure::Error;
 use futures::future::Future;
 use log::{Level, Log, Metadata, Record};
@@ -92,7 +92,7 @@ impl Log for Logger {
     fn log(&self, record: &Record) {
         if self.enabled(record.metadata()) {
             // Acquire buffer instance
-            let encoder = self.encoder.lock().expect("Unable to acquire buffer lock");
+            let encoder = self.encoder.lock().expect("Unable to acquire encoder lock");
             // Serialize binary log record into the output buffer
             let log_string = (self.format)(&record);
 
@@ -123,9 +123,9 @@ impl Log for Logger {
             // Acquire sender instance
             // Send a chunk of data using the connection
             debug_eprintln!("Sending {} bytes", data.len());
-            Arbiter::spawn(self.addr.send(LogChunk(data)).map_err(|_e| {
-                debug_eprintln!("Unable to send data {}", _e);
-            }));
+            if let Err(e) = self.addr.try_send(LogChunk(data)) {
+                debug_eprintln!("Unable to send data {}", e);
+            }
         }
     }
 
@@ -134,6 +134,7 @@ impl Log for Logger {
 
 #[test]
 fn logger() {
+    use actix::spawn;
     use actix::Actor;
     use actix::System;
     use chrono::Local;
@@ -169,11 +170,11 @@ fn logger() {
         )
     });
     let logger =
-        Logger::with_level(Level::Info, Compression::Fast, 128, addr.start(), format).unwrap();
+        Logger::with_level(Level::Trace, Compression::Fast, 128, addr.start(), format).unwrap();
 
-    Arbiter::spawn(lazy(|| {
+    spawn(lazy(|| {
         log::set_boxed_logger(Box::new(logger)).expect("Unable to set boxed logger");
-        log::set_max_level(Level::Info.to_level_filter());
+        log::set_max_level(Level::Trace.to_level_filter());
         println!("foo");
         info!("This log line is very long and it uses placeholders to verify that they are properly filled {} {:?}", "Hello, world!", 123_456_789u64);
         ok(())

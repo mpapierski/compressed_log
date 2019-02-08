@@ -2,9 +2,8 @@ use crate::client::{Connect, LogClient};
 use crate::formatter::{default_formatter, Formatter};
 use crate::logger::Logger;
 use crate::lz4::Compression;
-use actix::{Arbiter, Supervisor};
+use actix::Supervisor;
 use failure::Error;
-use futures::future::Future;
 use log::Level;
 use std::cell::RefCell;
 
@@ -63,10 +62,12 @@ impl LoggerBuilder {
 
         let addr = {
             let addr = Supervisor::start(|_ctx| LogClient::default());
-            let url = self.sink_url.as_ref().unwrap().clone();
-            Arbiter::spawn(addr.send(Connect(url)).map_err(|_e| {
-                debug_eprintln!("Unable to send data {}", _e);
-            }));
+            let url = self
+                .sink_url
+                .as_ref()
+                .expect("Unable to obtain sink url")
+                .clone();
+            addr.try_send(Connect(url))?;
             addr
         };
 

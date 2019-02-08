@@ -81,7 +81,6 @@ impl Handler<Connect> for LogClientAct {
             .connect()
             .map_err(|e| {
                 println!("Error connecting to loggin server: {:?}", e);
-                ()
             })
             .into_actor(self)
             .map(move |(reader, writer), mut act, mut ctx| {
@@ -95,7 +94,7 @@ impl Handler<Connect> for LogClientAct {
                 act.heartbeat = SystemTime::now();
                 act.hb(&mut ctx);
             })
-            .map_err(|err, act, ctx| {
+            .map_err(|_err, act, ctx| {
                 if let Some(timeout) = act.backoff.next_backoff() {
                     eprintln!("Next timeout: {:?}", timeout);
                     ctx.run_later(timeout, |_, ctx| ctx.stop());

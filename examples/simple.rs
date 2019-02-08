@@ -21,17 +21,17 @@ fn stdin() -> impl Stream<Item = String, Error = io::Error> {
             }
         }
     });
-    rx.then(|e| e.unwrap())
+    rx.then(|e| e.expect("Unable to unwrap stdin line"))
 }
 
 fn main() -> Result<(), Error> {
     let sys = System::new("simple");
     // Initialize compressed logger
-    let level = Level::Info;
+    let level = Level::Trace;
     let logger = LoggerBuilder::default()
         .set_level(level)
         .set_compression_level(Compression::Slow)
-        .set_sink_url("http://127.0.0.1:8000/sink/")
+        .set_sink_url("http://127.0.0.1:9999/sink/")
         .set_threshold(1024)
         .set_format(Box::new(|record: &Record| format!("{}\n", record.args())))
         .build()?;
