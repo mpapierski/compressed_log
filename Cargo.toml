@@ -20,3 +20,6 @@ actix = "0.7"
 actix-web = {version = "0.7", features = ["ssl"],  default-features = false}
 futures = "0.1"
 backoff = "0.1"
+
+#[patch.crates-io]
+#lz4 = { git = "https://github.com/mpapierski/lz4-rs", branch = "big-endian" }

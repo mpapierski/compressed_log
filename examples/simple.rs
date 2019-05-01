@@ -31,7 +31,7 @@ fn main() -> Result<(), Error> {
     let logger = LoggerBuilder::default()
         .set_level(level)
         .set_compression_level(Compression::Slow)
-        .set_sink_url("http://127.0.0.1:8000/sink/")
+        .set_sink_url("http://127.0.0.1:8080/sink/")
         .set_threshold(1024)
         .set_format(Box::new(|record: &Record| format!("{}\n", record.args())))
         .build()?;
@@ -43,7 +43,7 @@ fn main() -> Result<(), Error> {
         stdin()
             .for_each(|line| {
                 println!("Line: {:?}", line);
-                info!("Line: {}", line);
+                info!("{}", line);
                 Ok(())
             })
             .map_err(|e| eprintln!("Stdin error: {}", e)),
