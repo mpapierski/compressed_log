@@ -19,7 +19,7 @@ pub struct Logger {
     threshold: usize,
     encoder: Mutex<RefCell<InMemoryEncoder>>,
     addr: Addr<LogClient>,
-    format: Box<Fn(&Record) -> String + Sync + Send>,
+    format: Box<dyn Fn(&Record) -> String + Sync + Send>,
 }
 
 impl Logger {
@@ -38,7 +38,7 @@ impl Logger {
         compression: Compression,
         threshold: usize,
         addr: Addr<LogClient>,
-        format: Box<Fn(&Record) -> String + Sync + Send>,
+        format: Box<dyn Fn(&Record) -> String + Sync + Send>,
     ) -> Result<Self, Error> {
         // Create new LZ4 encoder which may potentially fail.
         let encoder = Logger::new_encoder(compression)?;
@@ -146,7 +146,7 @@ fn logger() {
     use std::sync::mpsc;
     let (tx, rx) = mpsc::channel();
 
-    let addr = LogClient::mock(Box::new(move |v, _ctx| -> Box<Any> {
+    let addr = LogClient::mock(Box::new(move |v, _ctx| -> Box<dyn Any> {
         if let Some(msg) = v.downcast_ref::<LogChunk>() {
             println!("Msg {:?}", msg.0);
             tx.send(msg.0.clone()).unwrap();

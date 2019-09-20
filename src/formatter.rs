@@ -2,7 +2,7 @@ use chrono::Local;
 use log::Record;
 
 /// Function type that accepts a borrowed Record and is supposed to return a string.
-pub type Formatter = Fn(&Record) -> String + Sync + Send;
+pub type Formatter = dyn Fn(&Record) -> String + Sync + Send;
 
 /// Default formatter that is in use when nothing is specified.
 pub(crate) fn default_formatter(record: &Record) -> String {
