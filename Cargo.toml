@@ -15,7 +15,7 @@ license-file = "LICENSE"
 travis-ci = { repository = "mpapierski/compressed_log", branch = "master" }
 
 [dependencies]
-lz4 = "1.23"
+flate2 = { version = "1.0", features = ["rust_backend"], default-features = false }
 log = { version = "0.4", features = ["std"] }
 chrono = "0.4"
 failure = "0.1"

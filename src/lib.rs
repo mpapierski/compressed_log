@@ -5,7 +5,7 @@ pub mod builder;
 pub mod client;
 pub mod formatter;
 pub mod logger;
-pub mod lz4;
+pub mod compression;
 
 #[macro_use]
 extern crate actix;

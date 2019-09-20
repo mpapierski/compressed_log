@@ -1,7 +1,7 @@
 use crate::client::{Connect, LogClient};
 use crate::formatter::{default_formatter, Formatter};
 use crate::logger::Logger;
-use crate::lz4::Compression;
+use crate::compression::Compression;
 use actix::Supervisor;
 use failure::Error;
 use log::Level;
@@ -21,7 +21,7 @@ impl Default for LoggerBuilder {
             /// Log all messages by default
             level: Level::Trace,
             /// Default is supposed to be low to provide fast on the fly compression
-            compression: Compression::Fast,
+            compression: Compression::none(),
             sink_url: None,
             /// Default threshold is about ~32KB of compressed data
             threshold: 32000usize,
@@ -48,10 +48,6 @@ impl LoggerBuilder {
     /// Sets the threshold in bytes
     pub fn set_threshold(&mut self, threshold: usize) -> &mut Self {
         self.threshold = threshold;
-        self
-    }
-    pub fn set_format(&mut self, format: Box<Formatter>) -> &mut Self {
-        self.format.replace(format);
         self
     }
     pub fn build(&self) -> Result<Logger, Error> {

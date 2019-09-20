@@ -1,6 +1,5 @@
 use ::actix::*;
 use actix_web::{server, ws, App};
-use lz4::Decoder;
 use std::io;
 
 /// Define http actor

@@ -3,7 +3,6 @@
 //! strategy.
 
 use crate::client::{LogChunk, LogClient};
-use crate::lz4::{Compression, Encoder, EncoderBuilder, InMemoryEncoder};
 use actix::Addr;
 use failure::Error;
 use futures::future::Future;
@@ -11,6 +10,9 @@ use log::{Level, Log, Metadata, Record};
 use std::cell::RefCell;
 use std::io::Write;
 use std::sync::Mutex;
+use crate::compression::Compression;
+use crate::compression::InMemoryEncoder;
+use crate::compression::create_encoder;
 
 /// A compressed logger structure.
 pub struct Logger {
@@ -23,13 +25,11 @@ pub struct Logger {
 }
 
 impl Logger {
-    pub fn new_encoder(compression: Compression) -> Result<Encoder<Vec<u8>>, Error> {
+    pub fn new_encoder(compression: Compression) -> Result<InMemoryEncoder, Error> {
         // This is the empty buffer that needs to be passed as output of LZ4
         let buffer = Vec::<u8>::new();
         // TODO: This should be more configurable
-        Ok(EncoderBuilder::new()
-            .level(compression.to_level())
-            .build(buffer)?)
+        Ok(create_encoder(buffer, compression))
     }
 
     // Create new Logger with given logging level
@@ -52,19 +52,17 @@ impl Logger {
             format,
         })
     }
-    /// Rotates the internal LZ4 buffer and returns the compressed data
+    /// Rotates the internal compressed buffer and returns the compressed data
     /// buffer.
     fn rotate(&self, encoder: &RefCell<InMemoryEncoder>) -> Result<Vec<u8>, Error> {
-        // Prepare new LZ4 encoder
+        // Prepare new compressed encoder
         let new_encoder = Logger::new_encoder(self.compression)?;
         // Retrieve the old encoder by swapping it with the new one
         let old_encoder = encoder.replace(new_encoder);
-        // Finish up the last bits of LZ4 stream and get the writer
-        let (writer, result) = old_encoder.finish();
-        // Check for any compression errors at the last step
-        result?;
+        // Finish up the last bits the stream stream and get the writer
+        let res = old_encoder.finish()?;
         // Return the data buffer
-        Ok(writer)
+        Ok(res)
     }
 }
 
@@ -109,7 +107,7 @@ impl Log for Logger {
             // Rotate the buffer based on a threshold
             let current_size = {
                 let encoder = encoder.borrow();
-                let writer = encoder.writer();
+                let writer = encoder.get_ref();
                 writer.len()
             };
             if current_size < self.threshold {
@@ -140,7 +138,7 @@ fn logger() {
     use chrono::Local;
     use futures::future::IntoFuture;
     use futures::future::{lazy, ok};
-    use lz4::Decoder;
+    use flate2::read::ZlibDecoder;
     use std::any::Any;
     use std::io;
     use std::sync::mpsc;
@@ -170,7 +168,7 @@ fn logger() {
         )
     });
     let logger =
-        Logger::with_level(Level::Trace, Compression::Fast, 128, addr.start(), format).unwrap();
+        Logger::with_level(Level::Trace, Compression::fast(), 128, addr.start(), format).unwrap();
 
     spawn(lazy(|| {
         log::set_boxed_logger(Box::new(logger)).expect("Unable to set boxed logger");
@@ -182,7 +180,7 @@ fn logger() {
     system.run();
 
     let data = rx.recv().unwrap();
-    let mut decoder = Decoder::new(&data[..]).expect("Unable to create decoder");
+    let mut decoder = ZlibDecoder::new(&data[..]);
     let mut output: Vec<u8> = Vec::new();
     io::copy(&mut decoder, &mut output).expect("Unable to copy data from decoder to output buffer");
     let s = String::from_utf8(output).unwrap();
