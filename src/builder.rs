@@ -1,8 +1,6 @@
-use crate::client::{Connect, LogClient};
+use crate::compression::Compression;
 use crate::formatter::{default_formatter, Formatter};
 use crate::logger::Logger;
-use crate::compression::Compression;
-use actix::Supervisor;
 use failure::Error;
 use log::Level;
 use std::cell::RefCell;
@@ -21,7 +19,7 @@ impl Default for LoggerBuilder {
             /// Log all messages by default
             level: Level::Trace,
             /// Default is supposed to be low to provide fast on the fly compression
-            compression: Compression::none(),
+            compression: Compression::None,
             sink_url: None,
             /// Default threshold is about ~32KB of compressed data
             threshold: 32000usize,
@@ -50,22 +48,16 @@ impl LoggerBuilder {
         self.threshold = threshold;
         self
     }
+    pub fn set_format(&mut self, format: Box<Formatter>) -> &mut Self {
+        let _ = self.format.replace(format);
+        self
+    }
     pub fn build(&self) -> Result<Logger, Error> {
         ensure!(
             self.sink_url.is_some(),
             "Unable to create Logger instance without sink url"
         );
-
-        let addr = {
-            let addr = Supervisor::start(|_ctx| LogClient::default());
-            let url = self
-                .sink_url
-                .as_ref()
-                .expect("Unable to obtain sink url")
-                .clone();
-            addr.try_send(Connect(url))?;
-            addr
-        };
+        let sink_url = self.sink_url.as_ref().unwrap().clone();
 
         // Extract inner formatter by swapping it
         let formatter = self.format.replace(Box::new(default_formatter));
@@ -74,7 +66,7 @@ impl LoggerBuilder {
             self.level,
             self.compression,
             self.threshold,
-            addr,
+            sink_url,
             formatter,
         )
     }

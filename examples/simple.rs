@@ -2,7 +2,7 @@
 extern crate log;
 use actix::{Arbiter, System};
 use compressed_log::builder::LoggerBuilder;
-use compressed_log::lz4::Compression;
+use compressed_log::compression::Compression;
 use failure::Error;
 use futures::prelude::*;
 use futures::sync::mpsc::channel;
