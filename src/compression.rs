@@ -32,10 +32,6 @@ impl Encoder {
         }
     }
     pub fn finish(self) -> Result<FinishValue, Error> {
-        let mut total_memory_used = 0usize;
-        for item in self.uncompressed_buffer.iter() {
-            total_memory_used += item.as_bytes().len();
-        }
         let l = PlaintextLogs {
             logs: self.uncompressed_buffer,
         };
@@ -49,11 +45,21 @@ impl Encoder {
                 let bytes = serde_json::to_vec(&l).unwrap();
                 encoder.write_all(&bytes)?;
                 let final_bytes = encoder.finish()?;
-                println!(
-                    "Compressed {} bytes to {} bytes",
-                    total_memory_used,
-                    final_bytes.len()
-                );
+
+                // debugging only code to determine compression ratio
+                #[cfg(debug)]
+                {
+                    let mut total_memory_used = 0usize;
+                    for item in self.uncompressed_buffer.iter() {
+                        total_memory_used += item.as_bytes().len();
+                    }
+                    debug_eprintln!(
+                        "Compressed {} bytes to {} bytes",
+                        total_memory_used,
+                        final_bytes.len()
+                    );
+                }
+
                 let cl = CompressedLogs {
                     compressed_plaintext_logs: final_bytes,
                 };

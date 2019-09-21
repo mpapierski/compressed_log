@@ -10,7 +10,3 @@ pub mod logger;
 extern crate serde_derive;
 #[macro_use]
 extern crate failure;
-
-#[macro_use]
-#[cfg(test)]
-extern crate log;

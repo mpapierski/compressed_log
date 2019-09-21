@@ -8,7 +8,7 @@ use std::time::Duration;
 static TIMEOUT: Duration = Duration::from_secs(1);
 
 pub fn plaintext_log_upload(msg: PlaintextLogs, url: String) {
-    println!("post? {}", url);
+    debug_eprintln!("post? {}", url);
     let res = client::post(&url)
         .header(header::CONTENT_TYPE, "application/json")
         .json(msg)
@@ -16,16 +16,15 @@ pub fn plaintext_log_upload(msg: PlaintextLogs, url: String) {
         .send()
         .timeout(TIMEOUT)
         .then(|response| {
-            println!("response {:?}", response);
-            // here we would normally log a success or error, but that's a feedback loop
-            // waiting to happen
+            debug_eprintln!("response {:?}", response);
+            let _response = response;
             Ok(())
         });
     Arbiter::spawn(res);
 }
 
 pub fn compressed_log_upload(msg: CompressedLogs, url: String) {
-    println!("compressed post? {}", url);
+    debug_eprintln!("compressed post? {}", url);
     let res = client::post(&url)
         .header(header::CONTENT_TYPE, "application/json")
         .json(msg)
@@ -33,9 +32,8 @@ pub fn compressed_log_upload(msg: CompressedLogs, url: String) {
         .send()
         .timeout(TIMEOUT)
         .then(|response| {
-            println!("response {:?}", response);
-            // here we would normally log a success or error, but that's a feedback loop
-            // waiting to happen
+            debug_eprintln!("response {:?}", response);
+            let _response = response;
             Ok(())
         });
     Arbiter::spawn(res);

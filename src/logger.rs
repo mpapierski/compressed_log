@@ -124,7 +124,7 @@ impl Log for Logger {
                 encoder.len()
             };
             if current_size < self.threshold {
-                println!("Buffer {} of {}", current_size, self.threshold);
+                debug_eprintln!("Buffer {} of {}", current_size, self.threshold);
                 // Compressed log didn't hit the size threshold
                 return;
             }
@@ -148,61 +148,3 @@ impl Log for Logger {
 
     fn flush(&self) {}
 }
-
-// #[test]
-// fn logger() {
-//     use actix::spawn;
-//     use actix::Actor;
-//     use actix::System;
-//     use chrono::Local;
-//     use flate2::read::ZlibDecoder;
-//     use futures::future::IntoFuture;
-//     use futures::future::{lazy, ok};
-//     use std::any::Any;
-//     use std::io;
-//     use std::sync::mpsc;
-//     let (tx, rx) = mpsc::channel();
-
-//     let addr = LogClient::mock(Box::new(move |v, _ctx| -> Box<dyn Any> {
-//         if let Some(msg) = v.downcast_ref::<LogChunk>() {
-//             println!("Msg {:?}", msg.0);
-//             tx.send(msg.0.clone()).unwrap();
-//             System::current().stop();
-//         } else {
-
-//         }
-//         Box::new(Some(()))
-//     }));
-
-//     let system = System::new("test");
-
-//     let format = Box::new(|record: &Record| {
-//         let timestamp = Local::now();
-//         format!(
-//             "{} {:<5} [{}] {}\n",
-//             timestamp.format("%Y-%m-%d %H:%M:%S"),
-//             record.level().to_string(),
-//             record.module_path().unwrap_or_default(),
-//             record.args()
-//         )
-//     });
-//     let logger =
-//         Logger::with_level(Level::Trace, Compression::Fast, 128, addr.start(), format).unwrap();
-
-//     spawn(lazy(|| {
-//         log::set_boxed_logger(Box::new(logger)).expect("Unable to set boxed logger");
-//         log::set_max_level(Level::Trace.to_level_filter());
-//         println!("foo");
-//         info!("This log line is very long and it uses placeholders to verify that they are properly filled {} {:?}", "Hello, world!", 123_456_789u64);
-//         ok(())
-//     }).into_future());
-//     system.run();
-
-//     let data = rx.recv();
-//     let data = data.as_ref().unwrap();
-//     let mut decoder = ZlibDecoder::new(&data[..]);
-//     let mut output: Vec<u8> = Vec::new();
-//     io::copy(&mut decoder, &mut output).expect("Unable to copy data from decoder to output buffer");
-//     let s = String::from_utf8(output).unwrap();
-//     assert!(s.ends_with("This log line is very long and it uses placeholders to verify that they are properly filled Hello, world! 123456789\n"), "{}", s);
-// }
