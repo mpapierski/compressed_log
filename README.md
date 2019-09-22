@@ -6,10 +6,13 @@
 A Rust crate to compress logs on the fly, and send them over the network after reaching a configured threshold.
 
 This is useful for when you have a fleet of embedded devices running a Rust program, instead of building a complicated
-metrics framework you can collect the normal Rust log output securely using https and efficiently using LZ4 compression.
+metrics framework you can collect the normal Rust log output securely using https and efficiently using Deflate compression.
 
-LZ4 is both fast enough to run on even the most resource starved devices and effective enough to reduce log size by 20x
-or more from naive byte streams.
+The pure rust backend of LibFlate2 is used with only a 100kb in memory buffer. Using the 'fast' compression setting the average
+compression ratio in our tests is ~25 without any noticible cpu impact on even embedded MIPS processors.
+
+Right now compressed_log pulls in the full Actix suite to handle futures and async requests. We hope to transition it to native
+futures and dramaticly reudce the dependency tree once they become more mature.
 
 On the server side logs are simply dumped into a file, where they can be aggregated and processed by standard log collection
 tools.
@@ -17,8 +20,7 @@ tools.
 # Features
 
 - Uses [log](https://crates.io/crates/log) API
-- LZ4 to compress log on the fly
-- Transmits compressed data over persistent WebSocket connection
+- LieFlate2 to compress log on the fly
 - Configurable threshold which will trigger in-memory log rotation and data transmission.
 - Fully architecture portable, including Mips and other BE architectures
 
