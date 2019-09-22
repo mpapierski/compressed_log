@@ -71,6 +71,9 @@ impl Encoder {
     pub fn len(&self) -> usize {
         self.uncompressed_buffer.len()
     }
+    pub fn is_empty(&self) -> bool {
+        self.uncompressed_buffer.is_empty()
+    }
     pub fn add_line(&mut self, line: String) {
         self.uncompressed_buffer.push(line)
     }
