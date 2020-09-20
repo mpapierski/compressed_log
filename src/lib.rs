@@ -12,5 +12,3 @@ pub mod formatter;
 pub mod logger;
 #[macro_use]
 extern crate serde_derive;
-#[macro_use]
-extern crate failure;

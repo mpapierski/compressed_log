@@ -1,9 +1,35 @@
 use crate::compression::Compression;
 use crate::formatter::{default_formatter, Formatter};
 use crate::logger::Logger;
-use failure::Error;
+use actix_web::client::PayloadError;
+use actix_web::client::SendRequestError;
 use log::Level;
 use std::cell::RefCell;
+use std::fmt;
+use std::io;
+
+#[derive(Debug)]
+pub enum LoggerError {
+    UploadFailure(PayloadError),
+    ConnectionFailure(SendRequestError),
+    IoError(io::Error),
+}
+
+impl fmt::Display for LoggerError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            LoggerError::UploadFailure(e) => write!(f, "Actix Upload Failure {:?}", e),
+            LoggerError::ConnectionFailure(e) => write!(f, "Actix Connection Failure {:?}", e),
+            LoggerError::IoError(e) => write!(f, "IoError {:?}", e),
+        }
+    }
+}
+
+impl From<io::Error> for LoggerError {
+    fn from(error: io::Error) -> Self {
+        LoggerError::IoError(error)
+    }
+}
 
 pub struct LoggerBuilder {
     level: Level,
@@ -52,8 +78,8 @@ impl LoggerBuilder {
         let _ = self.format.replace(format);
         self
     }
-    pub fn build(&self) -> Result<Logger, Error> {
-        ensure!(
+    pub fn build(&self) -> Result<Logger, LoggerError> {
+        assert!(
             self.sink_url.is_some(),
             "Unable to create Logger instance without sink url"
         );

@@ -1,7 +1,7 @@
 [package]
 name = "compressed_log"
-version = "0.2.2"
-authors = ["Michał Papierski <michal@papierski.net>"]
+version = "0.3.0"
+authors = ["Michał Papierski <michal@papierski.net>, Justin Kilpatrick <justin@althea.net>"]
 edition = "2018"
 include = [
     "**/*.rs",
@@ -18,11 +18,10 @@ travis-ci = { repository = "mpapierski/compressed_log", branch = "master" }
 flate2 = { version = "1.0", features = ["rust_backend"], default-features = false }
 log = { version = "0.4", features = ["std"] }
 chrono = "0.4"
-failure = "0.1"
-actix = "0.7"
-actix-web = {version = "0.7", features = ["ssl"],  default-features = false}
-futures = "0.1"
-backoff = "0.1"
+actix = "0.10"
+actix-web = {version = "3.0", features = ["openssl"],  default-features = false}
+futures = "0.3"
+backoff = "0.2"
 serde_json = "1.0"
 serde_derive = "1.0"
 serde = "1.0"

@@ -2,12 +2,13 @@
 //! buffer, and once the buffer is full it executes a rotation
 //! strategy.
 
+use crate::builder::LoggerError;
 use crate::client::compressed_log_upload;
 use crate::client::plaintext_log_upload;
 use crate::compression::Compression;
 use crate::compression::Encoder;
 use crate::compression::FinishValue;
-use failure::Error;
+use actix::{Arbiter, System};
 use log::{Level, Log, Metadata, Record};
 use std::cell::RefCell;
 use std::sync::Mutex;
@@ -35,7 +36,7 @@ pub struct Logger {
 }
 
 impl Logger {
-    pub fn new_encoder(compression: Compression) -> Result<Encoder, Error> {
+    pub fn new_encoder(compression: Compression) -> Result<Encoder, LoggerError> {
         // This is the empty buffer that needs to be passed as output of LZ4
         Ok(Encoder::new(compression))
     }
@@ -47,7 +48,7 @@ impl Logger {
         threshold: usize,
         sink_url: String,
         format: Box<dyn Fn(&Record) -> String + Sync + Send>,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self, LoggerError> {
         // Create new LZ4 encoder which may potentially fail.
         let encoder = Logger::new_encoder(compression)?;
         // Return the logger instance
@@ -62,7 +63,7 @@ impl Logger {
     }
     /// Rotates the internal compressed buffer and returns the compressed data
     /// buffer.
-    fn rotate(&self, encoder: &RefCell<Encoder>) -> Result<FinishValue, Error> {
+    fn rotate(&self, encoder: &RefCell<Encoder>) -> Result<FinishValue, LoggerError> {
         // Prepare new compressed encoder
         let new_encoder = Logger::new_encoder(self.compression)?;
         // Retrieve the old encoder by swapping it with the new one
@@ -91,15 +92,19 @@ impl Drop for Logger {
                 }
             }
         }
+        let url = self.sink_url.clone();
         // Send a chunk of data using the connection
-        match data {
-            FinishValue::Compressed(c) => {
-                compressed_log_upload(c, self.sink_url.clone());
+        Arbiter::spawn(async move {
+            match data {
+                FinishValue::Compressed(c) => {
+                    let _ = compressed_log_upload(c, url).await;
+                }
+                FinishValue::Uncompressed(c) => {
+                    let _ = plaintext_log_upload(c, url).await;
+                }
             }
-            FinishValue::Uncompressed(c) => {
-                plaintext_log_upload(c, self.sink_url.clone());
-            }
-        }
+            System::current().stop();
+        });
     }
 }
 
@@ -129,22 +134,42 @@ impl Log for Logger {
                 return;
             }
             // Save the memory buffer using already acquired encoder instance.
-            // With this approach it wont require us to manually drop a lock on encodr,
+            // With this approach it wont require us to manually drop a lock on encoder,
             // just to acquire it again inside rotate() function.
             let data = self.rotate(&encoder).expect("Unable to rotate the buffer");
 
-            match data {
-                FinishValue::Compressed(c) => {
-                    debug_eprintln!("Sending {} bytes", c.compressed_plaintext_logs.len());
-                    compressed_log_upload(c, self.sink_url.clone());
+            let url = self.sink_url.clone();
+            // Send a chunk of data using the connection
+            Arbiter::spawn(async move {
+                match data {
+                    FinishValue::Compressed(c) => {
+                        let _ = compressed_log_upload(c, url).await;
+                    }
+                    FinishValue::Uncompressed(c) => {
+                        let _ = plaintext_log_upload(c, url).await;
+                    }
                 }
-                FinishValue::Uncompressed(c) => {
-                    debug_eprintln!("Sending {} lines", c.logs.len());
-                    plaintext_log_upload(c, self.sink_url.clone());
-                }
-            }
+                System::current().stop();
+            });
         }
     }
 
-    fn flush(&self) {}
+    fn flush(&self) {
+        let encoder = self.encoder.lock().expect("Unable to acquire encoder lock");
+        let data = self.rotate(&encoder).expect("Unable to rotate the buffer");
+
+        let url = self.sink_url.clone();
+        // Send a chunk of data using the connection
+        Arbiter::spawn(async move {
+            match data {
+                FinishValue::Compressed(c) => {
+                    let _ = compressed_log_upload(c, url).await;
+                }
+                FinishValue::Uncompressed(c) => {
+                    let _ = plaintext_log_upload(c, url).await;
+                }
+            }
+            System::current().stop();
+        });
+    }
 }
