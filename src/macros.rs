@@ -1,11 +1,11 @@
 #[allow(unused_macros)]
 macro_rules! debug_eprintln {
     () => ({
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions,test))]
         eprint!("\n")
     });
     ($($arg:tt)*) => ({
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions,test))]
         eprintln!($($arg)*);
     })
 }

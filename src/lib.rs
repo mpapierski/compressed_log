@@ -12,3 +12,7 @@ pub mod formatter;
 pub mod logger;
 #[macro_use]
 extern crate serde_derive;
+
+#[cfg(test)]
+#[macro_use]
+extern crate log;

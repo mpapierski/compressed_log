@@ -94,17 +94,7 @@ impl Drop for Logger {
         }
         let url = self.sink_url.clone();
         // Send a chunk of data using the connection
-        Arbiter::spawn(async move {
-            match data {
-                FinishValue::Compressed(c) => {
-                    let _ = compressed_log_upload(c, url).await;
-                }
-                FinishValue::Uncompressed(c) => {
-                    let _ = plaintext_log_upload(c, url).await;
-                }
-            }
-            System::current().stop();
-        });
+        upload_logs(url, data);
     }
 }
 
@@ -129,10 +119,12 @@ impl Log for Logger {
                 encoder.len()
             };
             if current_size < self.threshold {
-                debug_eprintln!("Buffer {} of {}", current_size, self.threshold);
+                //debug_eprintln!("Buffer {} of {}", current_size, self.threshold);
                 // Compressed log didn't hit the size threshold
                 return;
             }
+            debug_eprintln!("Size greater than threshold, sending logs");
+
             // Save the memory buffer using already acquired encoder instance.
             // With this approach it wont require us to manually drop a lock on encoder,
             // just to acquire it again inside rotate() function.
@@ -140,26 +132,23 @@ impl Log for Logger {
 
             let url = self.sink_url.clone();
             // Send a chunk of data using the connection
-            Arbiter::spawn(async move {
-                match data {
-                    FinishValue::Compressed(c) => {
-                        let _ = compressed_log_upload(c, url).await;
-                    }
-                    FinishValue::Uncompressed(c) => {
-                        let _ = plaintext_log_upload(c, url).await;
-                    }
-                }
-                System::current().stop();
-            });
+            upload_logs(url, data);
         }
     }
 
     fn flush(&self) {
         let encoder = self.encoder.lock().expect("Unable to acquire encoder lock");
         let data = self.rotate(&encoder).expect("Unable to rotate the buffer");
+        debug_eprintln!("Flush called, dropping logs!");
 
         let url = self.sink_url.clone();
         // Send a chunk of data using the connection
+        upload_logs(url, data);
+    }
+}
+
+fn upload_logs(url: String, data: FinishValue) {
+    let _ = System::run(move || {
         Arbiter::spawn(async move {
             match data {
                 FinishValue::Compressed(c) => {
@@ -171,5 +160,35 @@ impl Log for Logger {
             }
             System::current().stop();
         });
+    });
+}
+
+#[test]
+/// A simple test environment for compressed log
+fn test_logging() {
+    use super::*;
+    use crate::builder::LoggerBuilder;
+    use log::LevelFilter;
+    let logging_url = "https://stats.altheamesh.com:9999/compressed_sink";
+    let level = LevelFilter::Info;
+
+    let logger = LoggerBuilder::default()
+        .set_level(level.to_level().unwrap())
+        .set_compression_level(Compression::Fast)
+        .set_sink_url(logging_url)
+        .set_threshold(1000)
+        .set_format(Box::new(move |record: &Record| {
+            format!("compressed-logger-tester! {}\n", record.args())
+        }))
+        .build();
+    let logger = logger.unwrap();
+    log::set_boxed_logger(Box::new(logger)).unwrap();
+    log::set_max_level(level);
+    println!(
+        "Remote compressed logging enabled with target {}",
+        logging_url
+    );
+    for _ in 0..10_000 {
+        info!("test!")
     }
 }

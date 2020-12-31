@@ -1,6 +1,6 @@
 [package]
 name = "compressed_log"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Michał Papierski <michal@papierski.net>, Justin Kilpatrick <justin@althea.net>"]
 edition = "2018"
 include = [
@@ -19,7 +19,7 @@ flate2 = { version = "1.0", features = ["rust_backend"], default-features = fals
 log = { version = "0.4", features = ["std"] }
 chrono = "0.4"
 actix = "0.10"
-actix-web = {version = "3.0", features = ["openssl"],  default-features = false}
+actix-web = {version = "3", features = ["openssl"],  default-features = false}
 futures = "0.3"
 backoff = "0.2"
 serde_json = "1.0"
