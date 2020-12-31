@@ -6,7 +6,7 @@ use actix_web::client::Client;
 use actix_web::http::header;
 use std::time::Duration;
 
-static TIMEOUT: Duration = Duration::from_secs(600);
+static TIMEOUT: Duration = Duration::from_secs(5);
 
 pub async fn plaintext_log_upload(msg: PlaintextLogs, url: String) -> Result<(), LoggerError> {
     debug_eprintln!("post? to {} with {} bytes", url, msg.logs.len());

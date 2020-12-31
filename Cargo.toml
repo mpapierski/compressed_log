@@ -1,6 +1,6 @@
 [package]
 name = "compressed_log"
-version = "0.3.1"
+version = "0.3.2"
 authors = ["Michał Papierski <michal@papierski.net>, Justin Kilpatrick <justin@althea.net>"]
 edition = "2018"
 include = [
