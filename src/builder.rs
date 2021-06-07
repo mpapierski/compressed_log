@@ -1,8 +1,8 @@
 use crate::compression::Compression;
 use crate::formatter::{default_formatter, Formatter};
 use crate::logger::Logger;
-use actix_web::client::PayloadError;
-use actix_web::client::SendRequestError;
+use awc::error::PayloadError;
+use awc::error::SendRequestError;
 use log::Level;
 use std::cell::RefCell;
 use std::fmt;
@@ -79,6 +79,7 @@ impl LoggerBuilder {
         self
     }
     pub fn build(&self) -> Result<Logger, LoggerError> {
+        debug_eprintln!("Building compressed logger");
         assert!(
             self.sink_url.is_some(),
             "Unable to create Logger instance without sink url"

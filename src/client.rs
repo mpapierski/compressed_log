@@ -2,8 +2,8 @@ use crate::{
     builder::LoggerError,
     logger::{CompressedLogs, PlaintextLogs},
 };
-use actix_web::client::Client;
-use actix_web::http::header;
+use awc::http::header::CONTENT_TYPE;
+use awc::Client;
 use std::time::Duration;
 
 static TIMEOUT: Duration = Duration::from_secs(5);
@@ -15,7 +15,7 @@ pub async fn plaintext_log_upload(msg: PlaintextLogs, url: String) -> Result<(),
     let client = Client::default();
     let res = client
         .post(&url)
-        .header(header::CONTENT_TYPE, "application/json")
+        .append_header((CONTENT_TYPE, "application/json"))
         .timeout(TIMEOUT)
         .send_json(&msg)
         .await;
@@ -37,7 +37,7 @@ pub async fn compressed_log_upload(msg: CompressedLogs, url: String) -> Result<(
     let client = Client::default();
     let res = client
         .post(&url)
-        .header(header::CONTENT_TYPE, "application/json")
+        .append_header((CONTENT_TYPE, "application/json"))
         .timeout(TIMEOUT)
         .send_json(&msg)
         .await;

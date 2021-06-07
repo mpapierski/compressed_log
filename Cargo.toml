@@ -18,10 +18,10 @@ travis-ci = { repository = "mpapierski/compressed_log", branch = "master" }
 flate2 = { version = "1.0", features = ["rust_backend"], default-features = false }
 log = { version = "0.4", features = ["std"] }
 chrono = "0.4"
-actix = "0.10"
-actix-web = {version = "3", features = ["openssl"],  default-features = false}
+actix = "0.11"
+awc = {version = "3.0.0-beta.5", default-features = false, features=["openssl", "compress"]}
 futures = "0.3"
-backoff = "0.2"
+backoff = "0.3"
 serde_json = "1.0"
 serde_derive = "1.0"
 serde = "1.0"

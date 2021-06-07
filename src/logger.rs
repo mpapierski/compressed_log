@@ -8,7 +8,7 @@ use crate::client::plaintext_log_upload;
 use crate::compression::Compression;
 use crate::compression::Encoder;
 use crate::compression::FinishValue;
-use actix::{Arbiter, System};
+use actix::System;
 use log::{Level, Log, Metadata, Record};
 use std::cell::RefCell;
 use std::sync::Mutex;
@@ -148,18 +148,17 @@ impl Log for Logger {
 }
 
 fn upload_logs(url: String, data: FinishValue) {
-    let _ = System::run(move || {
-        Arbiter::spawn(async move {
-            match data {
-                FinishValue::Compressed(c) => {
-                    let _ = compressed_log_upload(c, url).await;
-                }
-                FinishValue::Uncompressed(c) => {
-                    let _ = plaintext_log_upload(c, url).await;
-                }
+    let runner = System::new();
+    runner.block_on(async move {
+        match data {
+            FinishValue::Compressed(c) => {
+                let _ = compressed_log_upload(c, url).await;
             }
-            System::current().stop();
-        });
+            FinishValue::Uncompressed(c) => {
+                let _ = plaintext_log_upload(c, url).await;
+            }
+        }
+        System::current().stop();
     });
 }
 
@@ -176,7 +175,7 @@ fn test_logging() {
         .set_level(level.to_level().unwrap())
         .set_compression_level(Compression::Fast)
         .set_sink_url(logging_url)
-        .set_threshold(1000)
+        .set_threshold(10_000)
         .set_format(Box::new(move |record: &Record| {
             format!("compressed-logger-tester! {}\n", record.args())
         }))
@@ -188,7 +187,7 @@ fn test_logging() {
         "Remote compressed logging enabled with target {}",
         logging_url
     );
-    for _ in 0..10_000 {
+    for _ in 0..100_000 {
         info!("test!")
     }
 }
