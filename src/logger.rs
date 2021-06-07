@@ -12,6 +12,7 @@ use actix::System;
 use log::{Level, Log, Metadata, Record};
 use std::cell::RefCell;
 use std::sync::Mutex;
+use std::thread;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct PlaintextLogs {
@@ -148,17 +149,21 @@ impl Log for Logger {
 }
 
 fn upload_logs(url: String, data: FinishValue) {
-    let runner = System::new();
-    runner.block_on(async move {
-        match data {
-            FinishValue::Compressed(c) => {
-                let _ = compressed_log_upload(c, url).await;
+    // create a new thread for the actix executor
+    // to adopt in order to run the future to completion
+    thread::spawn(|| {
+        let runner = System::new();
+        runner.block_on(async move {
+            match data {
+                FinishValue::Compressed(c) => {
+                    let _ = compressed_log_upload(c, url).await;
+                }
+                FinishValue::Uncompressed(c) => {
+                    let _ = plaintext_log_upload(c, url).await;
+                }
             }
-            FinishValue::Uncompressed(c) => {
-                let _ = plaintext_log_upload(c, url).await;
-            }
-        }
-        System::current().stop();
+            System::current().stop();
+        });
     });
 }
 
