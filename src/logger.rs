@@ -78,6 +78,7 @@ impl Logger {
 
 impl Drop for Logger {
     fn drop(&mut self) {
+        debug_eprintln!("Drop handler called!");
         // Unconditional rotation of log
         let encoder = self.encoder.lock().expect("Unable to acquire buffer lock");
         let data = self.rotate(&encoder).expect("Unable to rotate the buffer");
@@ -112,7 +113,7 @@ impl Log for Logger {
             let log_string = (self.format)(&record);
 
             // First, write whole formatted string
-            encoder.borrow_mut().add_line(log_string);
+            encoder.borrow_mut().add_line(log_string.clone());
 
             // Rotate the buffer based on a threshold
             let current_size = {
@@ -120,7 +121,8 @@ impl Log for Logger {
                 encoder.len()
             };
             if current_size < self.threshold {
-                //debug_eprintln!("Buffer {} of {}", current_size, self.threshold);
+                debug_eprintln!("Buffer {} of {}", current_size, self.threshold);
+                debug_eprintln!("Line {}", log_string);
                 // Compressed log didn't hit the size threshold
                 return;
             }
@@ -149,9 +151,11 @@ impl Log for Logger {
 }
 
 fn upload_logs(url: String, data: FinishValue) {
+    debug_eprintln!("Uploading logs");
     // create a new thread for the actix executor
     // to adopt in order to run the future to completion
     thread::spawn(|| {
+        debug_eprintln!("thread spawned");
         let runner = System::new();
         runner.block_on(async move {
             match data {
