@@ -110,7 +110,7 @@ impl Log for Logger {
             // Acquire buffer instance
             let encoder = self.encoder.lock().expect("Unable to acquire encoder lock");
             // Serialize binary log record into the output buffer
-            let log_string = (self.format)(&record);
+            let log_string = (self.format)(record);
 
             // First, write whole formatted string
             encoder.borrow_mut().add_line(log_string.clone());
