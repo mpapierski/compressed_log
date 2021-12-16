@@ -13,6 +13,7 @@ pub struct Encoder {
     compression: Compression,
     encoder: Option<ZlibEncoder<Vec<u8>>>,
     uncompressed_buffer: Vec<String>,
+    uncompressed_bytes: usize,
 }
 
 impl Encoder {
@@ -23,11 +24,13 @@ impl Encoder {
                 compression: level,
                 encoder: None,
                 uncompressed_buffer: Vec::new(),
+                uncompressed_bytes: 0,
             },
             _ => Encoder {
                 compression: level,
                 encoder: Some(ZlibEncoder::new(buffer, level.into())),
                 uncompressed_buffer: Vec::new(),
+                uncompressed_bytes: 0,
             },
         }
     }
@@ -75,7 +78,11 @@ impl Encoder {
         self.uncompressed_buffer.is_empty()
     }
     pub fn add_line(&mut self, line: String) {
-        self.uncompressed_buffer.push(line)
+        self.uncompressed_bytes += line.as_bytes().len();
+        self.uncompressed_buffer.push(line);
+    }
+    pub fn uncompressed_bytes(&mut self) -> usize {
+        self.uncompressed_bytes
     }
 }
 

@@ -110,22 +110,41 @@ impl Log for Logger {
             // Acquire buffer instance
             let encoder = self.encoder.lock().expect("Unable to acquire encoder lock");
             // Serialize binary log record into the output buffer
-            let log_string = (self.format)(record);
+            let mut log_string = (self.format)(record);
 
-            // First, write whole formatted string
-            encoder.borrow_mut().add_line(log_string.clone());
 
             // Rotate the buffer based on a threshold
             let current_size = {
-                let encoder = encoder.borrow();
-                encoder.len()
-            };
-            if current_size < self.threshold {
-                debug_eprintln!("Buffer {} of {}", current_size, self.threshold);
-                debug_eprintln!("Line {}", log_string);
+                encoder.borrow_mut().uncompressed_bytes()
+            };            
+
+            let mut log_len = log_string.as_bytes().len();
+
+            // Error case when a single log line is greater than the entire buffer size. In this case we set the log to an error string.
+            if log_len > self.threshold {
+                let error_str = format!("Single log line greater than log threshold of {}, please reduce log size.\n This logs starts with {:?}", self.threshold, {
+                    let mut log_clone = log_string.clone();
+                    log_clone.truncate(1000);
+                    log_clone
+                });
+                debug_eprintln!("{}", error_str);
+                log_string = error_str;
+                log_len = log_string.as_bytes().len();
+            }
+
+            if current_size + log_len < self.threshold {
+
+                encoder.borrow_mut().add_line(log_string.clone());
+                debug_eprintln!("Buffer {} of {} bytes", current_size + log_len, self.threshold);
+                debug_eprintln!("First 10000 bytes of Line {:?}", {
+                    let mut log_clone = log_string.clone();
+                    log_clone.truncate(10000);
+                    log_clone
+                });
                 // Compressed log didn't hit the size threshold
                 return;
             }
+
             debug_eprintln!("Size greater than threshold, sending logs");
 
             // Save the memory buffer using already acquired encoder instance.
@@ -136,6 +155,10 @@ impl Log for Logger {
             let url = self.sink_url.clone();
             // Send a chunk of data using the connection
             upload_logs(url, data);
+
+            //Add the current log to new empty buffer
+            drop(encoder);
+            self.log(record);
         }
     }
 
