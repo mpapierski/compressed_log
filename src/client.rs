@@ -32,8 +32,10 @@ pub async fn compressed_log_upload(msg: CompressedLogs, url: String) -> Result<(
         url,
         msg.compressed_plaintext_logs.len()
     );
+
     // an Actix web client instance with the default setting. the main gotcha
     // to check here is maximum payload size if you want to go really big
+    // Limit here is 33554432 (32MB?)
     let client = Client::default();
     let res = client
         .post(&url)

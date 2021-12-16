@@ -1,12 +1,13 @@
 use crate::compression::Compression;
 use crate::formatter::{default_formatter, Formatter};
-use crate::logger::Logger;
+use crate::logger::{Logger, TIMER};
 use awc::error::PayloadError;
 use awc::error::SendRequestError;
 use log::Level;
 use std::cell::RefCell;
 use std::fmt;
 use std::io;
+use std::time::Instant;
 
 #[derive(Debug)]
 pub enum LoggerError {
@@ -34,7 +35,7 @@ impl From<io::Error> for LoggerError {
 pub struct LoggerBuilder {
     level: Level,
     compression: Compression,
-    sink_url: Option<String>,
+    sink_url: String,
     threshold: usize,
     format: RefCell<Box<Formatter>>,
 }
@@ -46,9 +47,10 @@ impl Default for LoggerBuilder {
             level: Level::Trace,
             /// Default is supposed to be low to provide fast on the fly compression
             compression: Compression::None,
-            sink_url: None,
-            /// Default threshold is about ~32KB of compressed data
-            threshold: 32000usize,
+            /// Setting to localhost by default
+            sink_url: "http://127.0.0.1:9999/compressed_sink".to_string(),
+            /// Default threshold is about ~32MB of compressed data
+            threshold: 32_000_000usize,
             /// Default format for backwards compatibility
             format: RefCell::new(Box::new(default_formatter)),
         }
@@ -66,12 +68,7 @@ impl LoggerBuilder {
         self
     }
     pub fn set_sink_url(&mut self, url: &str) -> &mut Self {
-        self.sink_url = Some(url.to_string());
-        self
-    }
-    /// Sets the threshold in bytes
-    pub fn set_threshold(&mut self, threshold: usize) -> &mut Self {
-        self.threshold = threshold;
+        self.sink_url = url.to_string();
         self
     }
     pub fn set_format(&mut self, format: Box<Formatter>) -> &mut Self {
@@ -80,14 +77,13 @@ impl LoggerBuilder {
     }
     pub fn build(&self) -> Result<Logger, LoggerError> {
         debug_eprintln!("Building compressed logger");
-        assert!(
-            self.sink_url.is_some(),
-            "Unable to create Logger instance without sink url"
-        );
-        let sink_url = self.sink_url.as_ref().unwrap().clone();
+        let sink_url = self.sink_url.clone();
 
         // Extract inner formatter by swapping it
         let formatter = self.format.replace(Box::new(default_formatter));
+
+        //Start the timer
+        *TIMER.write().unwrap() = Instant::now();
 
         Logger::with_level(
             self.level,

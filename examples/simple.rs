@@ -11,7 +11,6 @@ fn main() {
         .set_level(level)
         .set_compression_level(Compression::Slow)
         .set_sink_url("http://127.0.0.1:9999/sink/")
-        .set_threshold(1024)
         .set_format(Box::new(|record: &Record| format!("{}\n", record.args())))
         .build()
         .unwrap();
