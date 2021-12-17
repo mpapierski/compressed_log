@@ -1,0 +1,48 @@
+name: Rust
+
+on:
+  push:
+    branches: [ master, pranay_debug ]
+  pull_request:
+    branches: [ master ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build
+      run: cargo build --all --verbose
+
+  unit-tests:
+    
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Unit Tests
+      run: cargo test --all --verbose 
+
+  clippy:
+    
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Clippy
+      run: rustup component add clippy && cargo clippy --all --all-targets --all-features -- -D warnings
+
+  rustfmt:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Rustfmt
+      run: rustup component add rustfmt && cargo fmt --all -- --check
