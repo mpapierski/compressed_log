@@ -1,8 +1,6 @@
 use crate::compression::Compression;
 use crate::formatter::{default_formatter, Formatter};
 use crate::logger::{Logger, TIMER};
-use awc::error::PayloadError;
-use awc::error::SendRequestError;
 use log::Level;
 use std::cell::RefCell;
 use std::fmt;
@@ -11,15 +9,13 @@ use std::time::Instant;
 
 #[derive(Debug)]
 pub enum LoggerError {
-    UploadFailure(PayloadError),
-    ConnectionFailure(SendRequestError),
+    ConnectionFailure(String),
     IoError(io::Error),
 }
 
 impl fmt::Display for LoggerError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            LoggerError::UploadFailure(e) => write!(f, "Actix Upload Failure {:?}", e),
             LoggerError::ConnectionFailure(e) => write!(f, "Actix Connection Failure {:?}", e),
             LoggerError::IoError(e) => write!(f, "IoError {:?}", e),
         }

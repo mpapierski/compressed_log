@@ -22,7 +22,7 @@ pub async fn plaintext_log_upload(msg: PlaintextLogs, url: String) -> Result<(),
     debug_eprintln!("response {:?}", res);
     match res {
         Ok(_) => Ok(()),
-        Err(e) => Err(LoggerError::ConnectionFailure(e)),
+        Err(e) => Err(LoggerError::ConnectionFailure(e.to_string())),
     }
 }
 
@@ -46,6 +46,6 @@ pub async fn compressed_log_upload(msg: CompressedLogs, url: String) -> Result<(
     debug_eprintln!("response {:?}", res);
     match res {
         Ok(_) => Ok(()),
-        Err(e) => Err(LoggerError::ConnectionFailure(e)),
+        Err(e) => Err(LoggerError::ConnectionFailure(e.to_string())),
     }
 }
