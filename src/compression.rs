@@ -36,7 +36,7 @@ impl Encoder {
     }
     pub fn finish(self) -> Result<FinishValue, Error> {
         let l = PlaintextLogs {
-            logs: self.uncompressed_buffer,
+            logs: self.uncompressed_buffer.clone(),
         };
         match self.compression {
             Compression::None => {
@@ -50,7 +50,7 @@ impl Encoder {
                 let final_bytes = encoder.finish()?;
 
                 // debugging only code to determine compression ratio
-                #[cfg(debug)]
+                #[cfg(feature = "debug")]
                 {
                     let mut total_memory_used = 0usize;
                     for item in self.uncompressed_buffer.iter() {
@@ -91,6 +91,7 @@ impl From<Compression> for FlateCompression {
         match item {
             Compression::Fast => FlateCompression::fast(),
             Compression::Slow => FlateCompression::best(),
+            Compression::Suggested => FlateCompression::default(),
             Compression::Level(v) => FlateCompression::new(v),
             Compression::None => FlateCompression::none(),
         }
@@ -109,6 +110,8 @@ pub enum Compression {
     Slow,
     /// Arbitrary level of compression
     Level(u32),
+    /// Suggested by upstream
+    Suggested,
 }
 
 impl Compression {
@@ -117,6 +120,7 @@ impl Compression {
             Compression::Fast => 1,
             Compression::Slow => 9,
             Compression::Level(value) => value,
+            Compression::Suggested => FlateCompression::default().level(),
             Compression::None => 0,
         }
     }

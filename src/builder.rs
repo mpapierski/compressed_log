@@ -46,10 +46,10 @@ impl Default for LoggerBuilder {
             /// Log all messages by default
             level: Level::Trace,
             /// Default is supposed to be low to provide fast on the fly compression
-            compression: Compression::None,
+            compression: Compression::Suggested,
             /// Setting to localhost by default
             sink_url: "http://127.0.0.1:9999/compressed_sink".to_string(),
-            /// Default threshold is about ~32MB of compressed data
+            /// Default threshold is about ~32MB of uncompressed data
             threshold: 32_000_000usize,
             /// Default format for backwards compatibility
             format: RefCell::new(Box::new(default_formatter)),

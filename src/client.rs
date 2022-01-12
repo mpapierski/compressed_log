@@ -6,7 +6,7 @@ use awc::http::header::CONTENT_TYPE;
 use awc::Client;
 use std::time::Duration;
 
-static TIMEOUT: Duration = Duration::from_secs(5);
+static TIMEOUT: Duration = Duration::from_secs(60);
 
 pub async fn plaintext_log_upload(msg: PlaintextLogs, url: String) -> Result<(), LoggerError> {
     debug_eprintln!("post? to {} with {} bytes", url, msg.logs.len());
