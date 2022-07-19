@@ -17,7 +17,7 @@ travis-ci = { repository = "mpapierski/compressed_log", branch = "master" }
 [dependencies]
 flate2 = { version = "1.0", features = ["rust_backend"], default-features = false }
 log = { version = "0.4", features = ["std"] }
-chrono = "0.4"
+time = { version = "0.3", features = ["formatting"]}
 actix = "0.12"
 awc = {version = "3.0.0-beta.18", default-features = false, features=["openssl", "compress-gzip", "compress-zstd"]}
 futures = "0.3"
